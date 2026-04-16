@@ -206,7 +206,7 @@ const actions = {
         return
       }
 
-      paste(clipboard as { src: string, dest: string, type: string })
+      paste(clipboard as { src: string, dest: string, type: 'copy' | 'cut' })
         .then(() => {
           commit('SET_CLIPBOARD', null)
         })
