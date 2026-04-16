@@ -97,43 +97,98 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { ipcRenderer } from 'electron'
 import { getCurrentWindow, Menu as RemoteMenu } from '@electron/remote'
-import { mapState } from 'vuex'
-import { minimizePath, restorePath, maximizePath, closePath } from '../../assets/window-controls.js'
+import { minimizePath, restorePath, maximizePath, closePath } from '../../assets/window-controls'
 import { PATH_SEPARATOR } from '../../config'
 import { isOsx } from '@/util'
+import type { PreferenceState } from 'common/types/preferences'
+import type { WordCount } from '@/store/help'
 
-export default {
-  data () {
-    this.isOsx = isOsx
-    this.HASH = {
-      word: {
-        short: 'W',
-        full: 'word'
-      },
-      character: {
-        short: 'C',
-        full: 'character'
-      },
-      paragraph: {
-        short: 'P',
-        full: 'paragraph'
-      },
-      all: {
-        short: 'A',
-        full: '(with space)character'
-      }
+type WordCountDisplayKey = 'word' | 'paragraph' | 'character' | 'all'
+
+interface WordCountLabel {
+  short: string
+  full: string
+}
+
+interface ProjectLike {
+  name?: string
+}
+
+interface TitleBarStoreState {
+  preferences: Pick<PreferenceState, 'titleBarStyle'>
+  layout: {
+    showTabBar: boolean
+  }
+}
+
+const WORD_COUNT_LABELS: Record<WordCountDisplayKey, WordCountLabel> = {
+  word: {
+    short: 'W',
+    full: 'word'
+  },
+  character: {
+    short: 'C',
+    full: 'character'
+  },
+  paragraph: {
+    short: 'P',
+    full: 'paragraph'
+  },
+  all: {
+    short: 'A',
+    full: '(with space)character'
+  }
+}
+
+const WORD_COUNT_ITEMS: WordCountDisplayKey[] = ['word', 'paragraph', 'character', 'all']
+
+export default Vue.extend({
+  props: {
+    project: {
+      type: Object as PropType<ProjectLike | null>,
+      default: null
+    },
+    filename: {
+      type: String,
+      default: ''
+    },
+    pathname: {
+      type: String,
+      default: ''
+    },
+    active: {
+      type: Boolean,
+      default: false
+    },
+    wordCount: {
+      type: Object as PropType<WordCount | null>,
+      default: null
+    },
+    platform: {
+      type: String,
+      default: ''
+    },
+    isSaved: {
+      type: Boolean,
+      default: true
     }
-    this.windowIconMinimize = minimizePath
-    this.windowIconRestore = restorePath
-    this.windowIconMaximize = maximizePath
-    this.windowIconClose = closePath
+  },
+  data () {
+    const currentWindow = getCurrentWindow()
     return {
-      isFullScreen: getCurrentWindow().isFullScreen(),
-      isMaximized: getCurrentWindow().isMaximized(),
-      show: 'word'
+      isOsx,
+      HASH: WORD_COUNT_LABELS,
+      windowIconMinimize: minimizePath,
+      windowIconRestore: restorePath,
+      windowIconMaximize: maximizePath,
+      windowIconClose: closePath,
+      isFullScreen: currentWindow.isFullScreen(),
+      isMaximized: currentWindow.isMaximized(),
+      show: 'word' as WordCountDisplayKey
     }
   },
   created () {
@@ -142,38 +197,36 @@ export default {
     ipcRenderer.on('mt::window-enter-full-screen', this.onEnterFullScreen)
     ipcRenderer.on('mt::window-leave-full-screen', this.onLeaveFullScreen)
   },
-  props: {
-    project: Object,
-    filename: String,
-    pathname: String,
-    active: Boolean,
-    wordCount: Object,
-    platform: String,
-    isSaved: Boolean
+  beforeDestroy () {
+    ipcRenderer.off('mt::window-maximize', this.onMaximize)
+    ipcRenderer.off('mt::window-unmaximize', this.onUnmaximize)
+    ipcRenderer.off('mt::window-enter-full-screen', this.onEnterFullScreen)
+    ipcRenderer.off('mt::window-leave-full-screen', this.onLeaveFullScreen)
   },
   computed: {
-    ...mapState({
-      titleBarStyle: state => state.preferences.titleBarStyle,
-      showTabBar: state => state.layout.showTabBar
-    }),
-    paths () {
+    titleBarStyle (): PreferenceState['titleBarStyle'] {
+      return (this.$store.state as TitleBarStoreState).preferences.titleBarStyle
+    },
+    showTabBar (): boolean {
+      return (this.$store.state as TitleBarStoreState).layout.showTabBar
+    },
+    paths (): string[] {
       if (!this.pathname) return []
-      const pathnameToken = this.pathname.split(PATH_SEPARATOR).filter(i => i)
+      const pathnameToken = this.pathname.split(PATH_SEPARATOR).filter(Boolean)
       return pathnameToken.slice(0, pathnameToken.length - 1).slice(-3)
     },
-    showCustomTitleBar () {
+    showCustomTitleBar (): boolean {
       return this.titleBarStyle === 'custom' && !this.isOsx
     }
   },
   watch: {
-    filename: function (value) {
-      // Set filename when hover on dock
-      const hasOpenFolder = this.project && this.project.name
+    filename (value: string) {
+      const hasOpenFolder = !!this.project?.name
       let title = ''
       if (value) {
-        title = hasOpenFolder ? `${value} - ${this.project.name}` : `${value} - MarkText`
+        title = hasOpenFolder ? `${value} - ${this.project?.name}` : `${value} - MarkText`
       } else {
-        title = hasOpenFolder ? this.project.name : 'MarkText'
+        title = hasOpenFolder ? this.project?.name ?? 'MarkText' : 'MarkText'
       }
 
       document.title = title
@@ -181,12 +234,10 @@ export default {
   },
   methods: {
     handleWordClick () {
-      const ITEMS = ['word', 'paragraph', 'character', 'all']
-      const len = ITEMS.length
-      let index = ITEMS.indexOf(this.show)
+      let index = WORD_COUNT_ITEMS.indexOf(this.show)
       index += 1
-      if (index >= len) index = 0
-      this.show = ITEMS[index]
+      if (index >= WORD_COUNT_ITEMS.length) index = 0
+      this.show = WORD_COUNT_ITEMS[index]
     },
 
     handleCloseClick () {
@@ -216,7 +267,8 @@ export default {
 
     handleMenuClick () {
       const win = getCurrentWindow()
-      RemoteMenu.getApplicationMenu().popup({ window: win, x: 23, y: 20 })
+      const menu = RemoteMenu.getApplicationMenu()
+      menu?.popup({ window: win, x: 23, y: 20 })
     },
 
     rename () {
@@ -234,17 +286,11 @@ export default {
     onEnterFullScreen () {
       this.isFullScreen = true
     },
-    onLeaveFullScreen  () {
+    onLeaveFullScreen () {
       this.isFullScreen = false
     }
-  },
-  beforeDestroy () {
-    ipcRenderer.off('window-maximize', this.onMaximize)
-    ipcRenderer.off('window-unmaximize', this.onUnmaximize)
-    ipcRenderer.off('window-enter-full-screen', this.onEnterFullScreen)
-    ipcRenderer.off('window-leave-full-screen', this.onLeaveFullScreen)
   }
-}
+})
 </script>
 
 <style scoped>
