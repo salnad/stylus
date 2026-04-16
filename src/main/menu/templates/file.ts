@@ -15,7 +15,7 @@ interface UserPreferenceLike {
 
 type MaybeWindow = BrowserWindow | undefined
 
-const createMenuHandler = (callback: (browserWindow: MaybeWindow) => void) => {
+const createMenuHandler = (callback: (browserWindow: MaybeWindow) => unknown) => {
   return (_menuItem: Electron.MenuItem, browserWindow: MaybeWindow): void => {
     callback(browserWindow)
   }
@@ -24,7 +24,9 @@ const createMenuHandler = (callback: (browserWindow: MaybeWindow) => void) => {
 const createRecentItem = (label: string): MenuItemConstructorOptions => ({
   label,
   click (_menuItem, browserWindow) {
-    actions.openFileOrFolder(browserWindow, label)
+    if (browserWindow) {
+      actions.openFileOrFolder(browserWindow, label)
+    }
   }
 })
 
@@ -49,11 +51,19 @@ export default function fileTemplate (
     }, {
       label: 'Open File...',
       accelerator: keybindings.getAccelerator('file.open-file') ?? undefined,
-      click: createMenuHandler(actions.openFile)
+      click: createMenuHandler(browserWindow => {
+        if (browserWindow) {
+          return actions.openFile(browserWindow)
+        }
+      })
     }, {
       label: 'Open Folder...',
       accelerator: keybindings.getAccelerator('file.open-folder') ?? undefined,
-      click: createMenuHandler(actions.openFolder)
+      click: createMenuHandler(browserWindow => {
+        if (browserWindow) {
+          return actions.openFolder(browserWindow)
+        }
+      })
     }]
   }
 
@@ -100,8 +110,8 @@ export default function fileTemplate (
     type: 'checkbox',
     checked: autoSave,
     id: 'autoSaveMenuItem',
-    click (menuItem, browserWindow) {
-      actions.autoSave(menuItem, browserWindow)
+    click (menuItem, _browserWindow) {
+      actions.autoSave(menuItem)
     }
   }, {
     type: 'separator'
@@ -117,7 +127,11 @@ export default function fileTemplate (
     type: 'separator'
   }, {
     label: 'Import...',
-    click: createMenuHandler(actions.importFile)
+    click: createMenuHandler(browserWindow => {
+      if (browserWindow) {
+        return actions.importFile(browserWindow)
+      }
+    })
   }, {
     label: 'Export',
     submenu: [{
