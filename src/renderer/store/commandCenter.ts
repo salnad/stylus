@@ -21,7 +21,7 @@ interface CommandCenterState {
 type KeybindingMap = Record<string, string | undefined>
 
 const state: CommandCenterState = {
-  rootCommand: new RootCommand(staticCommands) as unknown as RootCommandLike
+  rootCommand: new RootCommand(staticCommands as unknown as []) as unknown as RootCommandLike
 }
 
 const getters = {}
