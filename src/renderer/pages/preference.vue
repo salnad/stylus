@@ -12,19 +12,25 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
-import TitleBar from '@/prefComponents/common/titlebar'
-import SideBar from '@/prefComponents/sideBar'
+<script lang="ts">
+import Vue from 'vue'
+import TitleBar from '@/prefComponents/common/titlebar.vue'
+import SideBar from '@/prefComponents/sideBar/index.vue'
 import { loadingPageMixins } from '@/mixins'
 import { addThemeStyle } from '@/util/theme'
 import { DEFAULT_STYLE } from '@/config'
 import { isOsx } from '@/util'
+import type { PreferenceState } from 'common/types/preferences'
 
-export default {
+interface PreferencePageStoreState {
+  preferences: Pick<PreferenceState, 'theme' | 'titleBarStyle'>
+}
+
+export default Vue.extend({
   data () {
-    this.isOsx = isOsx
-    return {}
+    return {
+      isOsx
+    }
   },
   mixins: [loadingPageMixins],
   components: {
@@ -32,16 +38,18 @@ export default {
     SideBar
   },
   computed: {
-    ...mapState({
-      theme: state => state.preferences.theme,
-      titleBarStyle: state => state.preferences.titleBarStyle
-    }),
-    showCustomTitleBar () {
+    theme (): string {
+      return (this.$store.state as PreferencePageStoreState).preferences.theme
+    },
+    titleBarStyle (): PreferenceState['titleBarStyle'] {
+      return (this.$store.state as PreferencePageStoreState).preferences.titleBarStyle
+    },
+    showCustomTitleBar (): boolean {
       return this.titleBarStyle === 'custom' && !this.isOsx
     }
   },
   watch: {
-    theme: function (value, oldValue) {
+    theme (value: string, oldValue: string) {
       if (value !== oldValue) {
         addThemeStyle(value)
       }
@@ -50,13 +58,13 @@ export default {
   created () {
     this.$nextTick(() => {
       const state = global.marktext.initialState || DEFAULT_STYLE
-      addThemeStyle(state.theme)
+      addThemeStyle(state.theme ?? DEFAULT_STYLE.theme)
 
       this.$store.dispatch('ASK_FOR_USER_PREFERENCE')
-      this.hideLoadingPage()
+      ;(loadingPageMixins.methods as { hideLoadingPage(this: Vue): void }).hideLoadingPage.call(this)
     })
   }
-}
+})
 </script>
 
 <style>
