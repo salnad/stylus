@@ -142,6 +142,11 @@ declare module 'axios/lib/adapters/http' {
   export default adapter
 }
 
+declare module 'mermaid/dist/mermaid.core.mjs' {
+  const mermaid: unknown
+  export default mermaid
+}
+
 declare module 'vue-electron' {
   const plugin: unknown
   export default plugin
