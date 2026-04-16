@@ -166,6 +166,11 @@ declare module 'element-ui/lib/locale' {
   export default locale
 }
 
+declare module 'codemirror/lib/codemirror' {
+  const codeMirror: unknown
+  export default codeMirror
+}
+
 declare module 'plist' {
   const plist: {
     parse(content: string): unknown

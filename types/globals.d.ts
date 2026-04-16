@@ -41,6 +41,7 @@ interface MarkTextGlobalState {
 declare global {
   interface Window {
     DIRNAME: string
+    CodeMirror?: unknown
   }
 
   var __static: string | undefined
