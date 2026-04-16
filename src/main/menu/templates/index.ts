@@ -10,9 +10,19 @@ import format from './format'
 import theme from './theme'
 import dock from './dock'
 
+interface KeybindingsLike {
+  getAccelerator(commandId: string): string | null
+}
+
+interface PreferencesLike {
+  getAll(): {
+    autoSave?: boolean
+  }
+}
+
 export const dockMenu = dock
 
-export const configSettingMenu = (keybindings: unknown): unknown[] => {
+export const configSettingMenu = (keybindings: KeybindingsLike): unknown[] => {
   return [
     ...(process.platform === 'darwin' ? [marktext(keybindings)] : []),
     prefEdit(keybindings),
@@ -21,8 +31,8 @@ export const configSettingMenu = (keybindings: unknown): unknown[] => {
 }
 
 export default function createEditorMenu (
-  keybindings: unknown,
-  preferences: unknown,
+  keybindings: KeybindingsLike,
+  preferences: PreferencesLike,
   recentlyUsedFiles: string[]
 ): unknown[] {
   return [
