@@ -165,3 +165,10 @@ declare module 'element-ui/lib/locale' {
   }
   export default locale
 }
+
+declare module 'plist' {
+  const plist: {
+    parse(content: string): unknown
+  }
+  export default plist
+}
