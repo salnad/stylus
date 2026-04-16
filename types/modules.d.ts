@@ -136,3 +136,27 @@ declare module 'ced' {
   function ced(input: Buffer | Uint8Array | ArrayBuffer | string): string
   export default ced
 }
+
+declare module 'vue-electron' {
+  const plugin: unknown
+  export default plugin
+}
+
+declare module 'source-map-support' {
+  const sourceMapSupport: {
+    install(options?: Record<string, unknown>): void
+  }
+  export default sourceMapSupport
+}
+
+declare module 'element-ui/lib/locale/lang/en' {
+  const locale: unknown
+  export default locale
+}
+
+declare module 'element-ui/lib/locale' {
+  const locale: {
+    use(language: unknown): void
+  }
+  export default locale
+}
