@@ -141,7 +141,7 @@ vueWithHttp.http = axios
 vuePrototypeWithHttp.$http = axios
 Vue.config.productionTip = false
 
-const rendererServices = services as RendererService[]
+const rendererServices = services as unknown as RendererService[]
 rendererServices.forEach(service => {
   vuePrototypeWithHttp[`$${service.name}`] = service[service.name]
 })
