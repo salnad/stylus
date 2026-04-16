@@ -137,6 +137,11 @@ declare module 'ced' {
   export default ced
 }
 
+declare module 'axios/lib/adapters/http' {
+  const adapter: unknown
+  export default adapter
+}
+
 declare module 'vue-electron' {
   const plugin: unknown
   export default plugin
