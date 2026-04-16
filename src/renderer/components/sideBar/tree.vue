@@ -80,82 +80,121 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import Folder from './treeFolder.vue'
 import File from './treeFile.vue'
 import OpenedFile from './treeOpenedTab.vue'
-import { mapState } from 'vuex'
 import bus from '../../bus'
 import { createFileOrDirectoryMixins } from '../../mixins'
 import FolderIcon from '@/assets/icons/undraw_folder.svg'
+import type { TreeFolderEntry } from '@/store/treeCtrl'
+import type { DocumentState } from '@/store/help'
 
-export default {
+interface CreateCache {
+  dirname?: string
+  type?: 'file' | 'directory'
+}
+
+interface TreeStoreState {
+  project: {
+    createCache: CreateCache
+  }
+}
+
+export default Vue.extend({
   mixins: [createFileOrDirectoryMixins],
-  data () {
-    this.depth = 0
-    this.FolderIcon = FolderIcon
-    return {
-      showDirectories: true,
-      showNewInput: false,
-      showOpenedFiles: true,
-      createName: ''
-    }
-  },
-  props: {
-    projectTree: {
-      validator: function (value) {
-        return typeof value === 'object'
-      },
-      required: true
-    },
-    openedFiles: Array,
-    tabs: Array
-  },
   components: {
     Folder,
     File,
     OpenedFile
   },
-  computed: {
-    ...mapState({
-      createCache: state => state.project.createCache
-    })
+  props: {
+    projectTree: {
+      type: Object as PropType<TreeFolderEntry | null>,
+      default: null
+    },
+    openedFiles: {
+      type: Array as PropType<DocumentState[]>,
+      default: () => []
+    },
+    tabs: {
+      type: Array as PropType<DocumentState[]>,
+      default: () => []
+    }
   },
-  created () {
-    this.$nextTick(() => {
-      bus.$on('SIDEBAR::show-new-input', this.handleInputFocus)
-      // hide rename or create input if needed
-      document.addEventListener('click', event => {
-        const target = event.target
-        if (target.tagName !== 'INPUT') {
-          this.$store.dispatch('CHANGE_ACTIVE_ITEM', {})
-          this.$store.commit('CREATE_PATH', {})
-          this.$store.commit('SET_RENAME_CACHE', null)
-        }
-      })
-      document.addEventListener('contextmenu', event => {
-        const target = event.target
-        if (target.tagName !== 'INPUT') {
-          this.$store.commit('CREATE_PATH', {})
-          this.$store.commit('SET_RENAME_CACHE', null)
-        }
-      })
-      document.addEventListener('keydown', event => {
-        if (event.key === 'Escape') {
-          this.$store.commit('CREATE_PATH', {})
-          this.$store.commit('SET_RENAME_CACHE', null)
-        }
-      })
-    })
+  data () {
+    return {
+      depth: 0,
+      FolderIcon,
+      showDirectories: true,
+      showNewInput: false,
+      showOpenedFiles: true,
+      createName: '',
+      documentClickHandler: null as ((event: MouseEvent) => void) | null,
+      documentContextMenuHandler: null as ((event: MouseEvent) => void) | null,
+      documentKeydownHandler: null as ((event: KeyboardEvent) => void) | null
+    }
+  },
+  computed: {
+    createCache (): CreateCache {
+      return (this.$store.state as TreeStoreState).project.createCache
+    }
+  },
+  mounted () {
+    bus.$on('SIDEBAR::show-new-input', this.handleInputFocus)
+
+    this.documentClickHandler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.tagName !== 'INPUT') {
+        this.$store.dispatch('CHANGE_ACTIVE_ITEM', {})
+        this.$store.commit('CREATE_PATH', {})
+        this.$store.commit('SET_RENAME_CACHE', null)
+      }
+    }
+
+    this.documentContextMenuHandler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.tagName !== 'INPUT') {
+        this.$store.commit('CREATE_PATH', {})
+        this.$store.commit('SET_RENAME_CACHE', null)
+      }
+    }
+
+    this.documentKeydownHandler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        this.$store.commit('CREATE_PATH', {})
+        this.$store.commit('SET_RENAME_CACHE', null)
+      }
+    }
+
+    document.addEventListener('click', this.documentClickHandler)
+    document.addEventListener('contextmenu', this.documentContextMenuHandler)
+    document.addEventListener('keydown', this.documentKeydownHandler)
+  },
+  beforeDestroy () {
+    bus.$off('SIDEBAR::show-new-input', this.handleInputFocus)
+    if (this.documentClickHandler) {
+      document.removeEventListener('click', this.documentClickHandler)
+    }
+    if (this.documentContextMenuHandler) {
+      document.removeEventListener('contextmenu', this.documentContextMenuHandler)
+    }
+    if (this.documentKeydownHandler) {
+      document.removeEventListener('keydown', this.documentKeydownHandler)
+    }
   },
   methods: {
     openFolder () {
       this.$store.dispatch('ASK_FOR_OPEN_PROJECT')
     },
-    saveAll (isClose) {
+    saveAll (isClose: boolean) {
       this.$store.dispatch('ASK_FOR_SAVE_ALL', isClose)
     },
     createFile () {
+      if (!this.projectTree) {
+        return
+      }
       this.$store.dispatch('CHANGE_ACTIVE_ITEM', this.projectTree)
       bus.$emit('SIDEBAR::new', 'file')
     },
@@ -166,7 +205,7 @@ export default {
       this.showDirectories = !this.showDirectories
     }
   }
-}
+})
 </script>
 
 <style scoped>

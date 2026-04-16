@@ -3,7 +3,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import path from 'path'
 
-interface SearchMatch {
+export interface SearchMatch {
   matchText: string
   lineText: string
   range: [[number, number], [number, number]]
@@ -11,7 +11,7 @@ interface SearchMatch {
   trailingContextLines?: string[]
 }
 
-interface SearchResult {
+export interface SearchResult {
   filePath: string
   matches: SearchMatch[]
 }
@@ -26,7 +26,7 @@ interface SearchOptions {
   isWholeWord?: boolean
   isRegexp?: boolean
   isCaseSensitive?: boolean
-  maxFileSize?: number
+  maxFileSize?: number | string
   includeHidden?: boolean
   leadingContextLineCount?: number
   trailingContextLineCount?: number

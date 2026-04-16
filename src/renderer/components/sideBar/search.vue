@@ -85,46 +85,63 @@
     </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
 import bus from '../../bus'
 import log from 'electron-log'
 import SearchResultItem from './searchResultItem.vue'
-import RipgrepDirectorySearcher from '../../node/ripgrepSearcher'
+import RipgrepDirectorySearcher, { type SearchResult } from '../../node/ripgrepSearcher'
 import EmptyIcon from '@/assets/icons/undraw_empty.svg'
 import FindCaseIcon from '@/assets/icons/searchIcons/iconCase.svg'
 import FindWordIcon from '@/assets/icons/searchIcons/iconWord.svg'
 import FindRegexIcon from '@/assets/icons/searchIcons/iconRegex.svg'
 import { MARKDOWN_INCLUSIONS } from '../../../common/filesystem/paths'
+import type { DocumentState, SearchMatches } from '@/store/help'
+import type { TreeFolderEntry } from '@/store/treeCtrl'
+import type { PreferencesState } from '@/store/preferences'
+import type { LayoutState } from '@/store/layout'
 
-export default {
+type CancelSearchCallback = (() => void) | null
+
+interface SearchStoreState {
+  layout: Pick<LayoutState, 'rightColumn' | 'showSideBar'>
+  editor: {
+    currentFile: Pick<DocumentState, 'searchMatches'>
+  }
+  project: {
+    projectTree: TreeFolderEntry | null
+  }
+  preferences: Pick<
+    PreferencesState,
+    'searchExclusions' | 'searchMaxFileSize' | 'searchIncludeHidden' | 'searchNoIgnore' | 'searchFollowSymlinks'
+  >
+}
+
+export default Vue.extend({
+  components: {
+    SearchResultItem
+  },
   data () {
-    this.lastKeyword = ''
-    this.lastSearchTime = new Date()
-    this.keyUpTimer = null
-    this.searcherCancelCallback = null
-    this.ripgrepDirectorySearcher = new RipgrepDirectorySearcher()
-    this.EmptyIcon = EmptyIcon
-    this.FindCaseIcon = FindCaseIcon
-    this.FindWordIcon = FindWordIcon
-    this.FindRegexIcon = FindRegexIcon
     return {
+      ripgrepDirectorySearcher: new RipgrepDirectorySearcher(),
+      EmptyIcon,
+      FindCaseIcon,
+      FindWordIcon,
+      FindRegexIcon,
       keyword: '',
-      searchResult: [],
+      searchResult: [] as SearchResult[],
       searcherRunning: false,
       showSearchCancelArea: false,
+      showSearchCancelAreaTimer: null as number | null,
       searchErrorString: '',
-
+      searcherCancelCallback: null as CancelSearchCallback,
       isCaseSensitive: false,
       isWholeWord: false,
       isRegexp: false
     }
   },
-  components: {
-    SearchResultItem
-  },
   watch: {
-    showSideBar: function (value, oldValue) {
+    showSideBar (value: boolean, oldValue: boolean) {
       if (value && !oldValue && this.rightColumn === 'search') {
         this.keyword = this.searchMatches.value
       }
@@ -140,41 +157,57 @@ export default {
       }
     })
   },
+  beforeDestroy () {
+    bus.$off('findInFolder', this.handleFindInFolder)
+  },
   computed: {
-    ...mapState({
-      rightColumn: state => state.layout.rightColumn,
-      showSideBar: state => state.layout.showSideBar,
-      searchMatches: state => state.editor.currentFile.searchMatches,
-      projectTree: state => state.project.projectTree,
-      searchExclusions: state => state.preferences.searchExclusions,
-      searchMaxFileSize: state => state.preferences.searchMaxFileSize,
-      searchIncludeHidden: state => state.preferences.searchIncludeHidden,
-      searchNoIgnore: state => state.preferences.searchNoIgnore,
-      searchFollowSymlinks: state => state.preferences.searchFollowSymlinks
-    }),
-    searchResultInfo () {
+    rightColumn (): string {
+      return (this.$store.state as SearchStoreState).layout.rightColumn
+    },
+    showSideBar (): boolean {
+      return (this.$store.state as SearchStoreState).layout.showSideBar
+    },
+    searchMatches (): SearchMatches {
+      return (this.$store.state as SearchStoreState).editor.currentFile.searchMatches
+    },
+    projectTree (): TreeFolderEntry | null {
+      return (this.$store.state as SearchStoreState).project.projectTree
+    },
+    searchExclusions (): string[] {
+      return (this.$store.state as SearchStoreState).preferences.searchExclusions
+    },
+    searchMaxFileSize (): string {
+      return (this.$store.state as SearchStoreState).preferences.searchMaxFileSize
+    },
+    searchIncludeHidden (): boolean {
+      return (this.$store.state as SearchStoreState).preferences.searchIncludeHidden
+    },
+    searchNoIgnore (): boolean {
+      return (this.$store.state as SearchStoreState).preferences.searchNoIgnore
+    },
+    searchFollowSymlinks (): boolean {
+      return (this.$store.state as SearchStoreState).preferences.searchFollowSymlinks
+    },
+    searchResultInfo (): string {
       const fileCount = this.searchResult.length
-      const matchCount = this.searchResult.reduce((acc, item) => {
-        return acc + item.matches.length
-      }, 0)
-
+      const matchCount = this.searchResult.reduce((acc, item) => acc + item.matches.length, 0)
       return `${matchCount} ${matchCount > 1 ? 'matches' : 'match'} in ${fileCount} ${fileCount > 1 ? 'files' : 'file'}`
     },
-    showNoFolderOpenedMessage () {
+    showNoFolderOpenedMessage (): boolean {
       return !this.projectTree || !this.projectTree.pathname
     },
-    showNoResultFoundMessage () {
+    showNoResultFoundMessage (): boolean {
       return this.searchResult.length === 0 && this.searcherRunning === false && this.keyword.length > 0
     }
   },
   methods: {
     search () {
-      // No root directory is opened.
-      if (this.showNoFolderOpenedMessage) {
+      const projectTree = this.projectTree
+      if (!projectTree) {
         return
       }
 
-      const { pathname: rootDirectoryPath } = this.projectTree
+      const rootDirectoryPath = projectTree.pathname
       const {
         keyword,
         searcherRunning,
@@ -202,49 +235,28 @@ export default {
       this.searcherRunning = true
       this.startShowSearchCancelAreaTimer()
 
-      const newSearchResult = []
+      const newSearchResult: SearchResult[] = []
       const promises = ripgrepDirectorySearcher.search([rootDirectoryPath], keyword, {
         didMatch: searchResult => {
-          if (canceled) return
-
-          // filePath: "<file>"
-          // matches: Array(1)
-          // 0:
-          //   leadingContextLines: []
-          //   lineText: "foo-test"
-          //   matchText: "foo"
-          //   range: Array(2)
-          //     0: (2) [0, 0]
-          //     1: (2) [0, 3]
-          //   length: 2
-          //   trailingContextLines: []
-
-          newSearchResult.push(searchResult)
+          if (!canceled) {
+            newSearchResult.push(searchResult)
+          }
         },
         didSearchPaths: numPathsFound => {
-          // More than 100 files with (multiple) matches were found.
           if (!canceled && numPathsFound > 100) {
             canceled = true
-            if (promises.cancel) {
-              promises.cancel()
-            }
+            promises.cancel()
             this.searchErrorString = 'Search was limited to 100 files.'
           }
         },
-
-        // UI options
         isCaseSensitive,
         isWholeWord,
         isRegexp,
-
-        // Options loaded from settings
         exclusions: this.searchExclusions,
-        maxFileSize: this.searchMaxFileSize || null,
+        maxFileSize: this.searchMaxFileSize || undefined,
         includeHidden: this.searchIncludeHidden,
         noIgnore: this.searchNoIgnore,
         followSymlinks: this.searchFollowSymlinks,
-
-        // Only search markdown files
         inclusions: MARKDOWN_INCLUSIONS
       })
         .then(() => {
@@ -253,31 +265,22 @@ export default {
           this.searcherCancelCallback = null
           this.stopShowSearchCancelAreaTimer()
         })
-        .catch(err => {
+        .catch((error: Error) => {
           canceled = true
-          if (promises.cancel) {
-            promises.cancel()
-          }
+          promises.cancel()
           this.searcherRunning = false
           this.searcherCancelCallback = null
           this.stopShowSearchCancelAreaTimer()
-
-          this.searchErrorString = err.message
-          log.error(err)
+          this.searchErrorString = error.message
+          log.error(error)
         })
 
       this.searcherCancelCallback = () => {
         this.stopShowSearchCancelAreaTimer()
         canceled = true
-        if (promises.cancel) {
-          promises.cancel()
-        }
+        promises.cancel()
       }
     },
-    /**
-     * Slightly delay showing the "cancel search" button so we don't
-     * see it after every keypress, but only when a search query is lagging.
-     */
     startShowSearchCancelAreaTimer () {
       this.stopShowSearchCancelAreaTimer()
 
@@ -288,16 +291,15 @@ export default {
     },
     stopShowSearchCancelAreaTimer () {
       this.showSearchCancelArea = false
-      if (!this.showSearchCancelAreaTimer) {
+      if (this.showSearchCancelAreaTimer === null) {
         return
       }
       window.clearTimeout(this.showSearchCancelAreaTimer)
       this.showSearchCancelAreaTimer = null
     },
     cancelSearcher () {
-      const { searcherCancelCallback } = this
-      if (searcherCancelCallback) {
-        searcherCancelCallback()
+      if (this.searcherCancelCallback) {
+        this.searcherCancelCallback()
         this.searcherCancelCallback = null
       }
     },
@@ -319,11 +321,8 @@ export default {
     handleFindInFolder () {
       this.keyword = this.searchMatches.value
     }
-  },
-  destroyed () {
-    bus.$off('findInFolder', this.handleFindInFolder)
   }
-}
+})
 </script>
 
 <style scoped>

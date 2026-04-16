@@ -21,15 +21,29 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
 import bus from '../../bus'
 import EmptyIcon from '@/assets/icons/undraw_toc_empty.svg'
+import type { TreeNode } from '@/util/listToTree'
 
-export default {
+interface TocStoreState {
+  editor: {
+    toc: TreeNode[]
+  }
+  preferences: {
+    wordWrapInToc: boolean
+  }
+}
+
+interface TocTreeNode {
+  slug: string
+}
+
+export default Vue.extend({
   data () {
-    this.EmptyIcon = EmptyIcon
     return {
+      EmptyIcon,
       defaultProps: {
         children: 'children',
         label: 'label'
@@ -37,17 +51,19 @@ export default {
     }
   },
   computed: {
-    ...mapState({
-      toc: state => state.editor.toc,
-      wordWrapInToc: state => state.preferences.wordWrapInToc
-    })
+    toc (): TreeNode[] {
+      return (this.$store.state as TocStoreState).editor.toc
+    },
+    wordWrapInToc (): boolean {
+      return (this.$store.state as TocStoreState).preferences.wordWrapInToc
+    }
   },
   methods: {
-    handleClick ({ slug }) {
+    handleClick ({ slug }: TocTreeNode) {
       bus.$emit('scroll-to-header', slug)
     }
   }
-}
+})
 </script>
 
 <style>

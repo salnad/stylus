@@ -48,94 +48,144 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { sideBarIcons, sideBarBottomIcons } from './help'
 import Tree from './tree.vue'
 import SideBarSearch from './search.vue'
 import Toc from './toc.vue'
-import { mapState } from 'vuex'
+import type { TreeFolderEntry } from '@/store/treeCtrl'
+import type { DocumentState } from '@/store/help'
 
-export default {
-  data () {
-    this.sideBarIcons = sideBarIcons
-    this.sideBarBottomIcons = sideBarBottomIcons
-    return {
-      openedFiles: [],
-      sideBarViewWidth: 280
-    }
-  },
+interface SideBarStoreState {
+  layout: {
+    rightColumn: string
+    showSideBar: boolean
+    sideBarWidth: number
+  }
+  project: {
+    projectTree: TreeFolderEntry | null
+  }
+  editor: {
+    tabs: DocumentState[]
+  }
+}
+
+type MouseHandler = ((event: MouseEvent) => void) | null
+
+export default Vue.extend({
   components: {
     Tree,
     SideBarSearch,
     Toc
   },
-  computed: {
-    ...mapState({
-      rightColumn: state => state.layout.rightColumn,
-      showSideBar: state => state.layout.showSideBar,
-      projectTree: state => state.project.projectTree,
-      sideBarWidth: state => state.layout.sideBarWidth,
-      tabs: state => state.editor.tabs
-    }),
-    finalSideBarWidth () {
-      const { showSideBar, rightColumn, sideBarViewWidth } = this
-      if (!showSideBar) return 0
-      if (rightColumn === '') return 45
-      return sideBarViewWidth < 220 ? 220 : sideBarViewWidth
+  data () {
+    return {
+      sideBarIcons,
+      sideBarBottomIcons,
+      openedFiles: [] as DocumentState[],
+      sideBarViewWidth: 280,
+      mouseDownHandler: null as MouseHandler,
+      mouseMoveHandler: null as MouseHandler,
+      mouseUpHandler: null as MouseHandler
     }
   },
-  created () {
-    this.$nextTick(() => {
-      const dragBar = this.$refs.dragBar
-      let startX = 0
-      let sideBarWidth = +this.sideBarWidth
-      let startWidth = sideBarWidth
+  computed: {
+    rightColumn (): string {
+      return (this.$store.state as SideBarStoreState).layout.rightColumn
+    },
+    showSideBar (): boolean {
+      return (this.$store.state as SideBarStoreState).layout.showSideBar
+    },
+    projectTree (): TreeFolderEntry | null {
+      return (this.$store.state as SideBarStoreState).project.projectTree
+    },
+    sideBarWidth (): number {
+      return (this.$store.state as SideBarStoreState).layout.sideBarWidth
+    },
+    tabs (): DocumentState[] {
+      return (this.$store.state as SideBarStoreState).editor.tabs
+    },
+    finalSideBarWidth (): number {
+      if (!this.showSideBar) return 0
+      if (this.rightColumn === '') return 45
+      return this.sideBarViewWidth < 220 ? 220 : this.sideBarViewWidth
+    }
+  },
+  mounted () {
+    const dragBar = this.$refs.dragBar as HTMLElement | undefined
+    if (!dragBar) {
+      return
+    }
 
-      this.sideBarViewWidth = sideBarWidth
+    let startX = 0
+    let currentSideBarWidth = this.sideBarWidth
+    let startWidth = currentSideBarWidth
 
-      const mouseUpHandler = event => {
-        document.removeEventListener('mousemove', mouseMoveHandler, false)
-        document.removeEventListener('mouseup', mouseUpHandler, false)
-        this.$store.dispatch('CHANGE_SIDE_BAR_WIDTH', sideBarWidth < 220 ? 220 : sideBarWidth)
+    this.sideBarViewWidth = currentSideBarWidth
+
+    this.mouseUpHandler = () => {
+      if (this.mouseMoveHandler) {
+        document.removeEventListener('mousemove', this.mouseMoveHandler, false)
       }
-
-      const mouseMoveHandler = event => {
-        const offset = event.clientX - startX
-        sideBarWidth = startWidth + offset
-        this.sideBarViewWidth = sideBarWidth
+      if (this.mouseUpHandler) {
+        document.removeEventListener('mouseup', this.mouseUpHandler, false)
       }
+      this.$store.dispatch('CHANGE_SIDE_BAR_WIDTH', currentSideBarWidth < 220 ? 220 : currentSideBarWidth)
+    }
 
-      const mouseDownHandler = event => {
-        startX = event.clientX
-        startWidth = +this.sideBarWidth
-        document.addEventListener('mousemove', mouseMoveHandler, false)
-        document.addEventListener('mouseup', mouseUpHandler, false)
+    this.mouseMoveHandler = (event: MouseEvent) => {
+      const offset = event.clientX - startX
+      currentSideBarWidth = startWidth + offset
+      this.sideBarViewWidth = currentSideBarWidth
+    }
+
+    this.mouseDownHandler = (event: MouseEvent) => {
+      startX = event.clientX
+      startWidth = this.sideBarWidth
+      if (this.mouseMoveHandler) {
+        document.addEventListener('mousemove', this.mouseMoveHandler, false)
       }
+      if (this.mouseUpHandler) {
+        document.addEventListener('mouseup', this.mouseUpHandler, false)
+      }
+    }
 
-      dragBar.addEventListener('mousedown', mouseDownHandler, false)
-    })
+    dragBar.addEventListener('mousedown', this.mouseDownHandler, false)
+  },
+  beforeDestroy () {
+    const dragBar = this.$refs.dragBar as HTMLElement | undefined
+    if (dragBar && this.mouseDownHandler) {
+      dragBar.removeEventListener('mousedown', this.mouseDownHandler, false)
+    }
+    if (this.mouseMoveHandler) {
+      document.removeEventListener('mousemove', this.mouseMoveHandler, false)
+    }
+    if (this.mouseUpHandler) {
+      document.removeEventListener('mouseup', this.mouseUpHandler, false)
+    }
   },
   methods: {
-    handleLeftIconClick (name) {
+    handleLeftIconClick (name: string) {
       if (this.rightColumn === name) {
         this.$store.commit('SET_LAYOUT', { rightColumn: '' })
         this.$store.dispatch('CHANGE_SIDE_BAR_WIDTH', this.finalSideBarWidth)
       } else {
         const needDispatch = this.rightColumn === ''
         this.$store.commit('SET_LAYOUT', { rightColumn: name })
-        this.sideBarViewWidth = +this.sideBarWidth
+        this.sideBarViewWidth = this.sideBarWidth
         if (needDispatch) {
           this.$store.dispatch('CHANGE_SIDE_BAR_WIDTH', this.finalSideBarWidth)
         }
       }
     },
-    handleLeftBottomClick (name) {
+    handleLeftBottomClick (name: string) {
       if (name === 'settings') {
         this.$store.dispatch('OPEN_SETTING_WINDOW')
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>
