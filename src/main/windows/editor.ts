@@ -140,7 +140,11 @@ class EditorWindow extends BaseWindow {
 
     win.webContents.on('context-menu', (event, params) => {
       const spellcheckEnabledPref = !!preferences.getItem('spellcheckerEnabled')
-      showEditorContextMenu(win as BrowserWindow, event, params, spellcheckEnabledPref)
+      showEditorContextMenu(
+        win as BrowserWindow,
+        params,
+        spellcheckEnabledPref
+      )
     })
 
     win.webContents.once('did-finish-load', () => {
