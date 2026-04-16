@@ -48,31 +48,58 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
 import log from 'electron-log'
 import bus from '../../bus'
-import loading from '../loading'
+import Loading from '../loading/index.vue'
 
-export default {
+interface CommandPaletteItem {
+  id: string
+  title?: string
+  description: string
+  shortcut?: string[]
+  value?: unknown
+  execute?: () => void
+  run?: () => Promise<void>
+  subcommands?: CommandPaletteItem[]
+}
+
+interface PaletteCommand {
+  run(): Promise<void>
+  subcommands: CommandPaletteItem[]
+  subcommandSelectedIndex: number
+  placeholder?: string
+  unload?(): void
+  search?(query: string): Promise<CommandPaletteItem[]>
+  executeSubcommand?(id: string, value?: unknown): void | Promise<void>
+}
+
+interface CommandCenterStoreState {
+  commandCenter: {
+    rootCommand: PaletteCommand
+  }
+}
+
+export default Vue.extend({
   components: {
-    loading
-  },
-  computed: {
-    ...mapState({
-      rootCommand: state => state.commandCenter.rootCommand
-    })
+    Loading
   },
   data () {
-    this.currentCommand = null
-    this.defaultPlaceholderText = 'Type a command to execute'
     return {
+      currentCommand: null as PaletteCommand | null,
+      defaultPlaceholderText: 'Type a command to execute',
       showCommandPalette: false,
-      placeholderText: this.defaultPlaceholderText,
+      placeholderText: 'Type a command to execute',
       query: '',
       selectedCommandIndex: -1,
-      availableCommands: [],
+      availableCommands: [] as CommandPaletteItem[],
       searcherBusy: false
+    }
+  },
+  computed: {
+    rootCommand (): PaletteCommand {
+      return (this.$store.state as CommandCenterStoreState).commandCenter.rootCommand
     }
   },
   created () {
@@ -84,10 +111,13 @@ export default {
     bus.$off('show-command-palette', this.handleShow)
   },
   methods: {
-    handleShow (command) {
+    handleShow (command?: PaletteCommand) {
       this.currentCommand = command || this.rootCommand
       this.currentCommand.run()
         .then(() => {
+          if (!this.currentCommand) {
+            return
+          }
           this.availableCommands = this.currentCommand.subcommands
           this.selectedCommandIndex = this.currentCommand.subcommandSelectedIndex
           this.placeholderText = this.currentCommand.placeholder || this.defaultPlaceholderText
@@ -95,19 +125,11 @@ export default {
           this.showCommandPalette = true
           bus.$emit('editor-blur')
           this.$nextTick(() => {
-            // Scroll selected entry into view.
-            const items = this.$refs['command-items']
-            const { selectedCommandIndex } = this
-            if (items && items.length > 0 && selectedCommandIndex >= 0) {
-              this.$refs['command-items'][selectedCommandIndex].scrollIntoView({ block: 'end' })
-            }
-
-            if (this.$refs.search) {
-              this.$refs.search.focus()
-            }
+            this.scrollSelectedCommandIntoView()
+            ;(this.$refs.search as HTMLInputElement | undefined)?.focus()
           })
         })
-        .catch(error => {
+        .catch((error: Error) => {
           // Allow to throw new Error(null) to indicate an invalid state.
           if (error && error.message) {
             log.error('Unable to initialize command:', error)
@@ -119,12 +141,18 @@ export default {
       this.selectedCommandIndex = -1
       this.query = ''
       this.availableCommands = []
-      if (this.currentCommand.unload) {
+      if (this.currentCommand?.unload) {
         this.currentCommand.unload()
       }
       this.currentCommand = null
     },
-    handleBeforeInput (event) {
+    scrollSelectedCommandIntoView () {
+      const items = this.$refs['command-items'] as HTMLElement[] | undefined
+      if (items && items.length > 0 && this.selectedCommandIndex >= 0) {
+        items[this.selectedCommandIndex]?.scrollIntoView({ block: 'end' })
+      }
+    },
+    handleBeforeInput (event: KeyboardEvent) {
       const { availableCommands, selectedCommandIndex } = this
       switch (event.key) {
         case 'ArrowUp': {
@@ -136,10 +164,7 @@ export default {
             this.selectedCommandIndex--
           }
 
-          const items = this.$refs['command-items']
-          if (items && items.length > 0) {
-            this.$refs['command-items'][this.selectedCommandIndex].scrollIntoView({ block: 'end' })
-          }
+          this.scrollSelectedCommandIntoView()
           break
         }
         case 'ArrowDown': {
@@ -151,15 +176,12 @@ export default {
             this.selectedCommandIndex++
           }
 
-          const items = this.$refs['command-items']
-          if (items && items.length > 0) {
-            this.$refs['command-items'][this.selectedCommandIndex].scrollIntoView({ block: 'end' })
-          }
+          this.scrollSelectedCommandIntoView()
           break
         }
       }
     },
-    handleInput (event) {
+    handleInput (event: KeyboardEvent) {
       if (event.isComposing) {
         return
       }
@@ -189,7 +211,7 @@ export default {
         }
       }
     },
-    search (commandId = null) {
+    search (commandId: string | null = null) {
       const { availableCommands, selectedCommandIndex } = this
       if (commandId) {
         // Command selected from dropdown.
@@ -206,18 +228,21 @@ export default {
     },
     updateCommands () {
       const { currentCommand, query } = this
+      if (!currentCommand) {
+        return
+      }
       const queryString = query.trim()
 
       // Allow to handle search result by command (e.g. quick search).
       if (currentCommand.search) {
         this.searcherBusy = true
         currentCommand.search(queryString)
-          .then(result => {
+          .then((result: CommandPaletteItem[]) => {
             this.searcherBusy = false
             this.availableCommands = result || []
             this.selectedCommandIndex = this.availableCommands.length ? 0 : -1
           })
-          .catch(error => {
+          .catch((error: Error) => {
             // The query was cancel or restarted if `message` is null.
             if (error && error.message) {
               this.searcherBusy = false
@@ -238,8 +263,11 @@ export default {
       }
       this.selectedCommandIndex = this.availableCommands.length ? 0 : -1
     },
-    executeCommand (commandId) {
+    executeCommand (commandId: string) {
       const { availableCommands, currentCommand } = this
+      if (!currentCommand) {
+        return
+      }
       const command = availableCommands.find(c => c.id === commandId)
       if (!command) {
         log.error(`Cannot find command "${commandId}".`)
@@ -263,12 +291,12 @@ export default {
           this.updateCommands()
         } else {
           this.showCommandPalette = false
-          execute()
+          execute?.()
         }
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>

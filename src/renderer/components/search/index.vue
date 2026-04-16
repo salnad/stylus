@@ -115,24 +115,37 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import bus from '../../bus'
-import { mapState } from 'vuex'
 import FindCaseIcon from '@/assets/icons/searchIcons/iconCase.svg'
 import FindWordIcon from '@/assets/icons/searchIcons/iconWord.svg'
 import FindRegexIcon from '@/assets/icons/searchIcons/iconRegex.svg'
+import type { SearchMatches } from '@/store/help'
 
-export default {
+type SearchType = 'search' | 'replace'
+type SearchControlKey = 'isCaseSensitive' | 'isWholeWord' | 'isRegexp'
+type FindAction = 'prev' | 'next'
+
+interface SearchStoreState {
+  editor: {
+    currentFile: {
+      searchMatches: SearchMatches
+    }
+  }
+}
+
+export default Vue.extend({
   data () {
-    this.FindCaseIcon = FindCaseIcon
-    this.FindWordIcon = FindWordIcon
-    this.FindRegexIcon = FindRegexIcon
     return {
+      FindCaseIcon,
+      FindWordIcon,
+      FindRegexIcon,
       showSearch: false,
       isCaseSensitive: false,
       isWholeWord: false,
       isRegexp: false,
-      type: 'search',
+      type: 'search' as SearchType,
       searchValue: '',
       replaceValue: '',
       searchErrorMsg: ''
@@ -140,7 +153,7 @@ export default {
   },
 
   watch: {
-    searchMatches: function (newValue, oldValue) {
+    searchMatches (newValue: SearchMatches, oldValue: SearchMatches) {
       if (!newValue || !oldValue) return
       const { value } = newValue
       if (value && value !== oldValue.value) {
@@ -150,22 +163,14 @@ export default {
   },
 
   computed: {
-    ...mapState({
-      searchMatches: state => state.editor.currentFile.searchMatches
-    }),
-    highlightIndex () {
-      if (this.searchMatches) {
-        return this.searchMatches.index
-      } else {
-        return -1
-      }
+    searchMatches (): SearchMatches {
+      return (this.$store.state as SearchStoreState).editor.currentFile.searchMatches
     },
-    highlightCount () {
-      if (this.searchMatches) {
-        return this.searchMatches.matches.length
-      } else {
-        return 0
-      }
+    highlightIndex (): number {
+      return this.searchMatches ? this.searchMatches.index : -1
+    },
+    highlightCount (): number {
+      return this.searchMatches ? this.searchMatches.matches.length : 0
     }
   },
 
@@ -188,7 +193,7 @@ export default {
   },
 
   methods: {
-    toggleCtrl (ctrl) {
+    toggleCtrl (ctrl: SearchControlKey) {
       this[ctrl] = !this[ctrl]
       this.search()
     },
@@ -197,7 +202,7 @@ export default {
       this.showSearch = true
       this.type = 'search'
       this.$nextTick(() => {
-        this.$refs.search.focus()
+        (this.$refs.search as HTMLInputElement | undefined)?.focus()
         if (this.searchValue) {
           this.search()
         }
@@ -217,7 +222,7 @@ export default {
       this.find('prev')
     },
 
-    docKeyup (event) {
+    docKeyup (event: KeyboardEvent) {
       if (event.key === 'Escape') {
         this.emptySearch(true)
       }
@@ -230,7 +235,8 @@ export default {
 
     emptySearch (selectHighlight = false) {
       this.showSearch = false
-      const searchValue = this.searchValue = ''
+      const searchValue = ''
+      this.searchValue = searchValue
       this.replaceValue = ''
       bus.$emit('searchValue', searchValue, { selectHighlight })
     },
@@ -239,46 +245,43 @@ export default {
       this.type = this.type === 'search' ? 'replace' : 'search'
     },
 
-    /**
-     * Find the previous or next search result.
-     * action: prev or next
-     */
-    find (action) {
+    find (action: FindAction) {
       bus.$emit('find-action', action)
     },
 
-    search (event) {
-      if (event && event.key === 'Escape') {
+    search (event?: KeyboardEvent) {
+      if (event?.key === 'Escape') {
         return
       }
 
-      if (event && event.key === 'Enter') {
-        return this.find('next')
+      if (event?.key === 'Enter') {
+        this.find('next')
+        return
       }
 
       const { searchValue, isCaseSensitive, isWholeWord, isRegexp } = this
       if (isRegexp) {
-        // Handle invalid regexp.
         try {
           // eslint-disable-next-line no-new
           new RegExp(searchValue)
           this.searchErrorMsg = ''
-        } catch (err) {
+        } catch (_) {
           this.searchErrorMsg = `Invalid regular expression: /${searchValue}/.`
           return
         }
-        // Handle match empty string, no need to search.
+
         try {
-          const SEARCH_REG = new RegExp(searchValue)
-          if (searchValue && SEARCH_REG.test('')) {
+          const searchReg = new RegExp(searchValue)
+          if (searchValue && searchReg.test('')) {
             throw new Error()
           }
           this.searchErrorMsg = ''
-        } catch (err) {
+        } catch (_) {
           this.searchErrorMsg = `RegExp: /${searchValue}/ match empty string.`
           return
         }
       }
+
       bus.$emit('searchValue', searchValue, {
         isCaseSensitive,
         isWholeWord,
@@ -298,7 +301,7 @@ export default {
 
     noop () {}
   }
-}
+})
 </script>
 
 <style scoped>
