@@ -22,23 +22,31 @@
     </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import Tabs from './tabs.vue'
 import Editor from './editor.vue'
 import SourceCode from './sourceCode.vue'
 import TabNotifications from './notifications.vue'
+import type { LayoutState } from '@/store/layout'
 
-export default {
+interface CursorLike {
+  anchor?: unknown
+  focus?: unknown
+}
+
+interface EditorWithTabsStoreState {
+  layout: Pick<LayoutState, 'showSideBar' | 'sideBarWidth'>
+}
+
+export default Vue.extend({
   props: {
     markdown: {
       type: String,
       required: true
     },
     cursor: {
-      validator (value) {
-        return typeof value === 'object'
-      },
+      type: Object as PropType<CursorLike>,
       required: true
     },
     sourceCode: {
@@ -65,12 +73,14 @@ export default {
     TabNotifications
   },
   computed: {
-    ...mapState({
-      showSideBar: state => state.layout.showSideBar,
-      sideBarWidth: state => state.layout.sideBarWidth
-    })
+    showSideBar (): boolean {
+      return (this.$store.state as EditorWithTabsStoreState).layout.showSideBar
+    },
+    sideBarWidth (): number {
+      return (this.$store.state as EditorWithTabsStoreState).layout.sideBarWidth
+    }
   }
-}
+})
 </script>
 
 <style scoped>

@@ -30,20 +30,41 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
+import type { DocumentState } from '@/store/help'
 
-export default {
-  data () {
-    return {}
-  },
+interface TabNotification {
+  msg: string
+  showConfirm?: boolean
+  style?: string
+  action?: (status: boolean) => void
+}
+
+interface NotificationsStoreState {
+  editor: {
+    currentFile: DocumentState & {
+      notifications: TabNotification[]
+    }
+  }
+  layout: {
+    showSideBar: boolean
+    sideBarWidth: number
+  }
+}
+
+export default Vue.extend({
   computed: {
-    ...mapState({
-      currentFile: state => state.editor.currentFile,
-      showSideBar: state => state.layout.showSideBar,
-      sideBarWidth: state => state.layout.sideBarWidth
-    }),
-    currentNotification () {
+    currentFile (): NotificationsStoreState['editor']['currentFile'] {
+      return (this.$store.state as NotificationsStoreState).editor.currentFile
+    },
+    showSideBar (): boolean {
+      return (this.$store.state as NotificationsStoreState).layout.showSideBar
+    },
+    sideBarWidth (): number {
+      return (this.$store.state as NotificationsStoreState).layout.sideBarWidth
+    },
+    currentNotification (): TabNotification | null {
       const notifications = this.currentFile.notifications
       if (!notifications || notifications.length === 0) {
         return null
@@ -52,7 +73,7 @@ export default {
     }
   },
   methods: {
-    handleClick (status) {
+    handleClick (status: boolean) {
       const notifications = this.currentFile.notifications
       if (!notifications || notifications.length === 0) {
         console.error('notifications::handleClick: Cannot find notification on stack.')
@@ -60,13 +81,10 @@ export default {
       }
 
       const item = notifications.shift()
-      const action = item.action
-      if (action) {
-        action(status)
-      }
+      item?.action?.(status)
     }
   }
-}
+})
 </script>
 
 <style scoped>
