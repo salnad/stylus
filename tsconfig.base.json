@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "common/*": [
+        "src/common/*"
+      ],
+      "@/*": [
+        "src/renderer/*"
+      ],
+      "muya/*": [
+        "src/muya/*"
+      ],
+      "main/*": [
+        "src/main/*"
+      ]
+    },
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "useDefineForClassFields": false
+  }
+}

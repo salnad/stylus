@@ -23,7 +23,7 @@ module.exports = {
   globals: {
     __static: true
   },
-  plugins: ['html', 'vue'],
+  plugins: ['html', 'vue', '@typescript-eslint'],
   rules: {
     // Two spaces but disallow semicolons
     indent: ['error', 2, { 'SwitchCase': 1, 'ignoreComments': true }],
@@ -45,6 +45,16 @@ module.exports = {
   },
   settings: {
     'import/resolver': {
+      typescript: {
+        alwaysTryTypes: true,
+        project: [
+          './tsconfig.main.json',
+          './tsconfig.renderer.json',
+          './tsconfig.muya.json',
+          './tsconfig.test.json'
+        ],
+        noWarnOnMultipleProjects: true
+      },
       alias: {
         map: [
           ['common', './src/common'],
@@ -52,10 +62,46 @@ module.exports = {
           ['@', './src/renderer'],
           ['muya', './src/muya']
         ],
-        extensions: ['.js', '.vue', '.json', '.css', '.node']
+        extensions: ['.js', '.ts', '.d.ts', '.vue', '.json', '.css', '.node']
       }
     }
   },
+  overrides: [
+    {
+      files: ['**/*.ts'],
+      parser: '@typescript-eslint/parser',
+      parserOptions: {
+        ecmaVersion: 11,
+        sourceType: 'module',
+        project: [
+          './tsconfig.main.json',
+          './tsconfig.renderer.json',
+          './tsconfig.muya.json',
+          './tsconfig.test.json'
+        ]
+      },
+      extends: ['plugin:@typescript-eslint/recommended'],
+      rules: {
+        'no-undef': 'off',
+        'no-unused-vars': 'off',
+        'node/no-missing-import': 'off',
+        '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }]
+      }
+    },
+    {
+      files: ['**/*.vue'],
+      parser: 'vue-eslint-parser',
+      parserOptions: {
+        ecmaVersion: 11,
+        sourceType: 'module',
+        extraFileExtensions: ['.vue'],
+        parser: {
+          js: '@babel/eslint-parser',
+          ts: '@typescript-eslint/parser'
+        }
+      }
+    }
+  ],
   ignorePatterns: [
     'node_modules',
     'src/muya/dist/**/*',

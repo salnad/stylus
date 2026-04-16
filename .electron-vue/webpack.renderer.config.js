@@ -12,6 +12,7 @@ const SpritePlugin = require('svg-sprite-loader/plugin')
 const postcssPresetEnv = require('postcss-preset-env')
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
 const ESLintPlugin = require('eslint-webpack-plugin')
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 
 const { getRendererEnvironmentDefinitions } = require('./marktextEnvironment')
 const { dependencies } = require('../package.json')
@@ -89,6 +90,46 @@ const rendererConfig = {
         use: 'vue-html-loader'
       },
       {
+        test: /\.ts$/,
+        use: [
+          {
+            loader: 'babel-loader',
+            options: {
+              cacheDirectory: true
+            }
+          },
+          {
+            loader: 'ts-loader',
+            options: {
+              configFile: path.join(__dirname, '../tsconfig.renderer.json'),
+              happyPackMode: true,
+              transpileOnly: true
+            }
+          }
+        ],
+        exclude: /node_modules/
+      },
+      {
+        resourceQuery: /lang=ts/,
+        use: [
+          {
+            loader: 'babel-loader',
+            options: {
+              cacheDirectory: true
+            }
+          },
+          {
+            loader: 'ts-loader',
+            options: {
+              appendTsSuffixTo: [/\.vue$/],
+              configFile: path.join(__dirname, '../tsconfig.renderer.json'),
+              happyPackMode: true,
+              transpileOnly: true
+            }
+          }
+        ]
+      },
+      {
         test: /\.js$/,
         use: [
           {
@@ -154,7 +195,7 @@ const rendererConfig = {
   plugins: [
     new ESLintPlugin({
       cache: !isProduction,
-      extensions: ['js', 'vue'],
+      extensions: ['js', 'ts', 'vue'],
       files: [
         'src',
         'test'
@@ -169,6 +210,18 @@ const rendererConfig = {
       formatter: require('eslint-friendly-formatter'),
       context: path.resolve(__dirname, '../'),
       overrideConfigFile: '.eslintrc.js'
+    }),
+    new ForkTsCheckerWebpackPlugin({
+      async: false,
+      typescript: {
+        configFile: path.join(__dirname, '../tsconfig.renderer.json'),
+        extensions: {
+          vue: {
+            enabled: true,
+            compiler: 'vue-template-compiler'
+          }
+        }
+      }
     }),
     new SpritePlugin(),
     new HtmlWebpackPlugin({
@@ -212,7 +265,7 @@ const rendererConfig = {
       snapsvg: path.join(__dirname, '../src/muya/lib/assets/libs/snap.svg-min.js'),
       'vue$': 'vue/dist/vue.esm.js'
     },
-    extensions: ['.js', '.vue', '.json', '.css', '.node']
+    extensions: ['.ts', '.js', '.vue', '.json', '.css', '.node']
   },
   target: 'electron-renderer'
 }

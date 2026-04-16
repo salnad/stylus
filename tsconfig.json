@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.main.json"
+    },
+    {
+      "path": "./tsconfig.renderer.json"
+    },
+    {
+      "path": "./tsconfig.muya.json"
+    },
+    {
+      "path": "./tsconfig.test.json"
+    }
+  ]
+}

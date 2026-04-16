@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node",
+      "webpack-env"
+    ]
+  },
+  "include": [
+    ".electron-vue/**/*.ts",
+    "test/**/*.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "src/muya/dist",
+    "test/specs/**/*"
+  ]
+}

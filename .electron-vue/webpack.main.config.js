@@ -27,7 +27,7 @@ const mainConfig = {
   module: {
     rules: [
       {
-        test: /\.js$/,
+        test: /\.(js|ts)$/,
         use: 'babel-loader',
         exclude: /node_modules/
       },
@@ -52,7 +52,7 @@ const mainConfig = {
   },
   plugins: [
     new ESLintPlugin({
-      extensions: ['js'],
+      extensions: ['js', 'ts'],
       files: [
         'src',
         'test'
@@ -75,7 +75,7 @@ const mainConfig = {
     alias: {
       'common': path.join(__dirname, '../src/common')
     },
-    extensions: ['.js', '.json', '.node']
+    extensions: ['.ts', '.js', '.json', '.node']
   },
   target: 'electron-main'
 }

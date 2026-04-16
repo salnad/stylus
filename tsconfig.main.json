@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2020"
+    ],
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/common/**/*.ts",
+    "src/main/**/*.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "static/themes",
+    "src/muya/dist",
+    "src/main/menu/templates/index.js"
+  ]
+}

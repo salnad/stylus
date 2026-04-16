@@ -7,19 +7,22 @@ const exportDefault = require('@babel/plugin-proposal-export-default-from')
 const isTanbul = require('babel-plugin-istanbul')
 const component = require('babel-plugin-component')
 const presetEnv = require('@babel/preset-env')
+const presetTypescript = require('@babel/preset-typescript')
 
 const presetsHash = {
   test: [
     [presetEnv,
     {
       targets: { 'node': 16 }
-    }]
+    }],
+    presetTypescript
   ],
   main: [
     [presetEnv,
     {
       targets: { 'node': 16 }
-    }]
+    }],
+    presetTypescript
   ],
   renderer: [
     [presetEnv,
@@ -29,7 +32,8 @@ const presetsHash = {
         electron: require('electron/package.json').version,
         node: 16
       }
-    }]
+    }],
+    presetTypescript
   ]
 }
 

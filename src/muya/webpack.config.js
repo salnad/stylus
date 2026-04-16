@@ -55,7 +55,7 @@ module.exports = {
         use: 'vue-html-loader'
       },
       {
-        test: /\.js$/,
+        test: /\.(js|ts)$/,
         use: 'babel-loader',
         exclude: /node_modules/
       },
@@ -99,7 +99,7 @@ module.exports = {
     alias: {
       snapsvg: path.join(__dirname, './lib/assets/libs/snap.svg-min.js')
     },
-    extensions: ['.js', '.vue', '.json', '.css', '.node'],
+    extensions: ['.ts', '.js', '.vue', '.json', '.css', '.node'],
     fallback: {
       fs: false,
       path: require.resolve('path-browserify')
