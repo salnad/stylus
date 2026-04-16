@@ -5,7 +5,7 @@ import type { BrowserWindow } from 'electron'
 import type { AppEnvironment } from '../app/env'
 import { isLinux } from '../config'
 
-interface UserPreferenceLike {
+export interface UserPreferenceLike {
   getAll: () => {
     codeFontFamily: string
     codeFontSize: string | number
