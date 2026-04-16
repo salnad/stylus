@@ -6,8 +6,10 @@
   </div>
 </template>
 
-<script>
-export default {
+<script lang="ts">
+import Vue from 'vue'
+
+export default Vue.extend({
   props: {
     size: {
       type: Number,
@@ -16,7 +18,7 @@ export default {
   },
 
   computed: {
-    dotSize () {
+    dotSize (): Record<'width' | 'height', string> {
       const size = `${this.size}px`
       return {
         width: size,
@@ -24,7 +26,7 @@ export default {
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>

@@ -66,16 +66,26 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { shell } from 'electron'
 import bus from '../../bus'
 
-export default {
+type FaceName = 'smile' | 'sad'
+
+interface TweetParams {
+  via: string
+  url: string
+  text: string
+  hashtags?: string
+}
+
+export default Vue.extend({
   data () {
     return {
       showTweetDialog: false,
       value: '',
-      selectedFace: 'smile'
+      selectedFace: 'smile' as FaceName
     }
   },
   created () {
@@ -90,10 +100,10 @@ export default {
       this.value = ''
       bus.$emit('editor-blur')
       this.$nextTick(() => {
-        this.$refs.textarea.focus()
+        (this.$refs.textarea as HTMLTextAreaElement | undefined)?.focus()
       })
     },
-    faceClick (name) {
+    faceClick (name: FaceName) {
       this.selectedFace = name
     },
     reportViaGithub () {
@@ -104,7 +114,7 @@ export default {
       if (!value) return
       const origin = 'https://twitter.com/intent/tweet'
 
-      const params = {
+      const params: TweetParams = {
         via: 'marktextme',
         url: encodeURI('https://github.com/marktext/marktext/'),
         text: value
@@ -112,11 +122,11 @@ export default {
 
       if (selectedFace === 'smile') params.hashtags = 'happyMarkText'
 
-      shell.openExternal(`${origin}?${Object.keys(params).map(key => `${key}=${params[key]}`).join('&')}`)
+      shell.openExternal(`${origin}?${Object.keys(params).map(key => `${key}=${params[key as keyof TweetParams]}`).join('&')}`)
       this.showTweetDialog = false
     }
   }
-}
+})
 </script>
 
 <style>

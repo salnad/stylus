@@ -23,11 +23,18 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import bus from '../../bus'
-import { mapState } from 'vuex'
+import type { DocumentState } from '@/store/help'
 
-export default {
+interface RenameStoreState {
+  editor: {
+    currentFile: DocumentState
+  }
+}
+
+export default Vue.extend({
   data () {
     return {
       showRename: false,
@@ -43,22 +50,22 @@ export default {
     bus.$off('rename', this.handleRename)
   },
   computed: {
-    ...mapState({
-      filename: state => state.editor.currentFile.filename
-    })
+    filename (): string {
+      return (this.$store.state as RenameStoreState).editor.currentFile.filename
+    }
   },
   methods: {
     handleRename () {
       this.showRename = true
       this.tempName = this.filename
-      this.$refs.search.focus()
+      ;(this.$refs.search as HTMLInputElement | undefined)?.focus()
     },
     confirm () {
       this.$store.dispatch('RENAME', this.tempName)
       this.showRename = false
     }
   }
-}
+})
 </script>
 
 <style>

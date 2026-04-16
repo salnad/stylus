@@ -26,25 +26,30 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
 import bus from '../../bus'
 import MarkTextLogo from '../../assets/images/logo.png'
 
-export default {
+interface AboutStoreState {
+  appVersion: string
+}
+
+export default Vue.extend({
   data () {
-    this.name = 'MarkText'
-    this.copyright = `Copyright © 2017-${new Date().getFullYear()} Luo Ran`
-    this.copyrightContributors = `Copyright © 2018-${new Date().getFullYear()} MarkText Contributors`
-    this.logo = MarkTextLogo
+    const currentYear = new Date().getFullYear()
     return {
+      name: 'MarkText',
+      copyright: `Copyright © 2017-${currentYear} Luo Ran`,
+      copyrightContributors: `Copyright © 2018-${currentYear} MarkText Contributors`,
+      logo: MarkTextLogo,
       showAboutDialog: false
     }
   },
   computed: {
-    ...mapState({
-      appVersion: state => state.appVersion
-    })
+    appVersion (): string {
+      return (this.$store.state as AboutStoreState).appVersion
+    }
   },
   created () {
     bus.$on('aboutDialog', this.showDialog)
@@ -58,7 +63,7 @@ export default {
       bus.$emit('editor-blur')
     }
   }
-}
+})
 </script>
 
 <style>

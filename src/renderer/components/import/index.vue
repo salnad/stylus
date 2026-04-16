@@ -33,15 +33,16 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import bus from '@/bus'
 import { ipcRenderer } from 'electron'
 import importIcon from '@/assets/icons/import_file.svg'
 
-export default {
+export default Vue.extend({
   data () {
-    this.importIcon = importIcon
     return {
+      importIcon,
       showImport: false,
       isOver: false
     }
@@ -53,29 +54,30 @@ export default {
     bus.$off('importDialog', this.showDialog)
   },
   methods: {
-    showDialog (boolean) {
-      if (boolean !== this.showImport) {
-        this.showImport = boolean
+    showDialog (visible: boolean) {
+      if (visible !== this.showImport) {
+        this.showImport = visible
       }
     },
-    dragOverHandler (e) {
+    dragOverHandler (_event: DragEvent) {
       this.isOver = true
     },
-    dragLeaveHandler (e) {
+    dragLeaveHandler (_event: DragEvent) {
       this.isOver = false
     },
-    dropHandler (e) {
-      e.preventDefault()
-      if (e.dataTransfer.files) {
-        const fileList = []
-        for (const file of e.dataTransfer.files) {
+    dropHandler (event: DragEvent) {
+      event.preventDefault()
+      const files = event.dataTransfer?.files
+      if (files) {
+        const fileList: string[] = []
+        for (const file of Array.from(files)) {
           fileList.push(file.path)
         }
         ipcRenderer.send('mt::window::drop', fileList)
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>

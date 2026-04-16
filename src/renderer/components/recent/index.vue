@@ -13,20 +13,22 @@
     </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import ContentIcon from '@/assets/icons/undraw_content.svg'
 
-export default {
+export default Vue.extend({
   data () {
-    this.ContentIcon = ContentIcon
-    return {}
+    return {
+      ContentIcon
+    }
   },
   methods: {
     newFile () {
       this.$store.dispatch('NEW_UNTITLED_TAB', {})
     }
   }
-}
+})
 </script>
 
 <style scoped>
