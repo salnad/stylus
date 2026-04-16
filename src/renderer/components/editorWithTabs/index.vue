@@ -28,7 +28,6 @@ import Tabs from './tabs.vue'
 import Editor from './editor.vue'
 import SourceCode from './sourceCode.vue'
 import TabNotifications from './notifications.vue'
-import type { LayoutState } from '@/store/layout'
 
 interface CursorLike {
   anchor?: unknown
@@ -36,7 +35,10 @@ interface CursorLike {
 }
 
 interface EditorWithTabsStoreState {
-  layout: Pick<LayoutState, 'showSideBar' | 'sideBarWidth'>
+  layout: {
+    showSideBar: boolean
+    sideBarWidth: number
+  }
 }
 
 export default Vue.extend({

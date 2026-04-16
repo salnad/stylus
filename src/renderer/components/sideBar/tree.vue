@@ -86,7 +86,6 @@ import Folder from './treeFolder.vue'
 import File from './treeFile.vue'
 import OpenedFile from './treeOpenedTab.vue'
 import bus from '../../bus'
-import { createFileOrDirectoryMixins } from '../../mixins'
 import FolderIcon from '@/assets/icons/undraw_folder.svg'
 import type { TreeFolderEntry } from '@/store/treeCtrl'
 import type { DocumentState } from '@/store/help'
@@ -102,8 +101,18 @@ interface TreeStoreState {
   }
 }
 
+interface TreeComponentInstance extends Vue {
+  createName: string
+  showOpenedFiles: boolean
+  showDirectories: boolean
+  projectTree: TreeFolderEntry | null
+  documentClickHandler: ((event: MouseEvent) => void) | null
+  documentContextMenuHandler: ((event: MouseEvent) => void) | null
+  documentKeydownHandler: ((event: KeyboardEvent) => void) | null
+  handleInputFocus: () => void
+}
+
 export default Vue.extend({
-  mixins: [createFileOrDirectoryMixins],
   components: {
     Folder,
     File,
@@ -142,49 +151,72 @@ export default Vue.extend({
     }
   },
   mounted () {
-    bus.$on('SIDEBAR::show-new-input', this.handleInputFocus)
+    const vm = this as unknown as TreeComponentInstance
+    bus.$on('SIDEBAR::show-new-input', vm.handleInputFocus)
 
-    this.documentClickHandler = (event: MouseEvent) => {
+    vm.documentClickHandler = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
       if (target?.tagName !== 'INPUT') {
-        this.$store.dispatch('CHANGE_ACTIVE_ITEM', {})
-        this.$store.commit('CREATE_PATH', {})
-        this.$store.commit('SET_RENAME_CACHE', null)
+        vm.$store.dispatch('CHANGE_ACTIVE_ITEM', {})
+        vm.$store.commit('CREATE_PATH', {})
+        vm.$store.commit('SET_RENAME_CACHE', null)
       }
     }
 
-    this.documentContextMenuHandler = (event: MouseEvent) => {
+    vm.documentContextMenuHandler = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
       if (target?.tagName !== 'INPUT') {
-        this.$store.commit('CREATE_PATH', {})
-        this.$store.commit('SET_RENAME_CACHE', null)
+        vm.$store.commit('CREATE_PATH', {})
+        vm.$store.commit('SET_RENAME_CACHE', null)
       }
     }
 
-    this.documentKeydownHandler = (event: KeyboardEvent) => {
+    vm.documentKeydownHandler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        this.$store.commit('CREATE_PATH', {})
-        this.$store.commit('SET_RENAME_CACHE', null)
+        vm.$store.commit('CREATE_PATH', {})
+        vm.$store.commit('SET_RENAME_CACHE', null)
       }
     }
 
-    document.addEventListener('click', this.documentClickHandler)
-    document.addEventListener('contextmenu', this.documentContextMenuHandler)
-    document.addEventListener('keydown', this.documentKeydownHandler)
+    if (vm.documentClickHandler) {
+      document.addEventListener('click', vm.documentClickHandler)
+    }
+    if (vm.documentContextMenuHandler) {
+      document.addEventListener('contextmenu', vm.documentContextMenuHandler)
+    }
+    if (vm.documentKeydownHandler) {
+      document.addEventListener('keydown', vm.documentKeydownHandler)
+    }
   },
   beforeDestroy () {
-    bus.$off('SIDEBAR::show-new-input', this.handleInputFocus)
-    if (this.documentClickHandler) {
-      document.removeEventListener('click', this.documentClickHandler)
+    const vm = this as unknown as TreeComponentInstance
+    bus.$off('SIDEBAR::show-new-input', vm.handleInputFocus)
+    if (vm.documentClickHandler) {
+      document.removeEventListener('click', vm.documentClickHandler)
     }
-    if (this.documentContextMenuHandler) {
-      document.removeEventListener('contextmenu', this.documentContextMenuHandler)
+    if (vm.documentContextMenuHandler) {
+      document.removeEventListener('contextmenu', vm.documentContextMenuHandler)
     }
-    if (this.documentKeydownHandler) {
-      document.removeEventListener('keydown', this.documentKeydownHandler)
+    if (vm.documentKeydownHandler) {
+      document.removeEventListener('keydown', vm.documentKeydownHandler)
     }
   },
   methods: {
+    handleInputFocus () {
+      const vm = this as unknown as TreeComponentInstance
+      vm.$nextTick(() => {
+        const input = vm.$refs.input as HTMLInputElement | undefined
+        input?.focus()
+        vm.createName = ''
+        if (vm.projectTree) {
+          vm.projectTree.isCollapsed = false
+        }
+      })
+    },
+    handleInputEnter () {
+      const vm = this as unknown as TreeComponentInstance
+      vm.$store.dispatch('CREATE_FILE_DIRECTORY', vm.createName)
+    },
     openFolder () {
       this.$store.dispatch('ASK_FOR_OPEN_PROJECT')
     },
@@ -192,17 +224,20 @@ export default Vue.extend({
       this.$store.dispatch('ASK_FOR_SAVE_ALL', isClose)
     },
     createFile () {
-      if (!this.projectTree) {
+      const vm = this as unknown as TreeComponentInstance
+      if (!vm.projectTree) {
         return
       }
-      this.$store.dispatch('CHANGE_ACTIVE_ITEM', this.projectTree)
+      vm.$store.dispatch('CHANGE_ACTIVE_ITEM', vm.projectTree)
       bus.$emit('SIDEBAR::new', 'file')
     },
     toggleOpenedFiles () {
-      this.showOpenedFiles = !this.showOpenedFiles
+      const vm = this as unknown as TreeComponentInstance
+      vm.showOpenedFiles = !vm.showOpenedFiles
     },
     toggleDirectories () {
-      this.showDirectories = !this.showDirectories
+      const vm = this as unknown as TreeComponentInstance
+      vm.showDirectories = !vm.showDirectories
     }
   }
 })

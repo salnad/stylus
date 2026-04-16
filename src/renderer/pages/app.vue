@@ -36,25 +36,60 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { addStyles, addThemeStyle } from '@/util/theme'
-import Recent from '@/components/recent'
-import EditorWithTabs from '@/components/editorWithTabs'
-import TitleBar from '@/components/titleBar'
-import SideBar from '@/components/sideBar'
-import AboutDialog from '@/components/about'
-import CommandPalette from '@/components/commandPalette'
-import ExportSettingDialog from '@/components/exportSettings'
-import Rename from '@/components/rename'
-import Tweet from '@/components/tweet'
-import ImportModal from '@/components/import'
+import Recent from '@/components/recent/index.vue'
+import EditorWithTabs from '@/components/editorWithTabs/index.vue'
+import TitleBar from '@/components/titleBar/index.vue'
+import SideBar from '@/components/sideBar/index.vue'
+import AboutDialog from '@/components/about/index.vue'
+import CommandPalette from '@/components/commandPalette/index.vue'
+import ExportSettingDialog from '@/components/exportSettings/index.vue'
+import Rename from '@/components/rename/index.vue'
+import Tweet from '@/components/tweet/index.vue'
+import ImportModal from '@/components/import/index.vue'
 import { loadingPageMixins } from '@/mixins'
-import { mapState } from 'vuex'
 import bus from '@/bus'
-import { DEFAULT_STYLE } from '@/config'
+import { DEFAULT_STYLE, type DefaultStyle } from '@/config'
 import { ipcRenderer } from 'electron'
+import type { TextDirection } from 'common/types/preferences'
+import type { PreferencesState } from '@/store/preferences'
+import type { DocumentState, WordCount } from '@/store/help'
+import type { TreeFolderEntry } from '@/store/treeCtrl'
 
-export default {
+interface AppStoreState {
+  layout: {
+    showTabBar: boolean
+  }
+  preferences: Pick<PreferencesState, 'sourceCode' | 'theme' | 'textDirection' | 'zoom'>
+  project: {
+    projectTree: TreeFolderEntry | null
+  }
+  editor: {
+    currentFile: DocumentState
+  }
+  windowActive: boolean
+  platform: string
+  init: boolean
+}
+
+interface DispatchableStore {
+  dispatch(type: string, payload?: unknown): unknown
+  commit(type: string, payload?: unknown): unknown
+}
+
+const getInitialStyle = (): DefaultStyle => {
+  const initialState = global.marktext.initialState
+  return {
+    codeFontFamily: initialState?.codeFontFamily || DEFAULT_STYLE.codeFontFamily,
+    codeFontSize: initialState?.codeFontSize || DEFAULT_STYLE.codeFontSize,
+    hideScrollbar: initialState?.hideScrollbar ?? DEFAULT_STYLE.hideScrollbar,
+    theme: initialState?.theme || DEFAULT_STYLE.theme
+  }
+}
+
+export default Vue.extend({
   name: 'marktext',
   components: {
     Recent,
@@ -71,72 +106,89 @@ export default {
   mixins: [loadingPageMixins],
   data () {
     return {
+      timer: null as ReturnType<typeof setTimeout> | null
     }
   },
   computed: {
-    ...mapState({
-      showTabBar: state => state.layout.showTabBar,
-      sourceCode: state => state.preferences.sourceCode,
-      theme: state => state.preferences.theme,
-      textDirection: state => state.preferences.textDirection
-    }),
-    ...mapState({
-      zoom: state => state.preferences.zoom
-    }),
-    ...mapState({
-      projectTree: state => state.project.projectTree,
-      pathname: state => state.editor.currentFile.pathname,
-      filename: state => state.editor.currentFile.filename,
-      isSaved: state => state.editor.currentFile.isSaved,
-      markdown: state => state.editor.currentFile.markdown,
-      cursor: state => state.editor.currentFile.cursor,
-      wordCount: state => state.editor.currentFile.wordCount
-    }),
-    ...mapState([
-      'windowActive', 'platform', 'init'
-    ]),
-    hasCurrentFile () {
-      return this.markdown !== undefined
+    showTabBar (): boolean {
+      return (this.$store.state as AppStoreState).layout.showTabBar
+    },
+    sourceCode (): boolean {
+      return (this.$store.state as AppStoreState).preferences.sourceCode
+    },
+    theme (): string {
+      return (this.$store.state as AppStoreState).preferences.theme
+    },
+    textDirection (): TextDirection {
+      return (this.$store.state as AppStoreState).preferences.textDirection as TextDirection
+    },
+    zoom (): number {
+      return (this.$store.state as AppStoreState).preferences.zoom
+    },
+    projectTree (): TreeFolderEntry | null {
+      return (this.$store.state as AppStoreState).project.projectTree
+    },
+    pathname (): string {
+      return (this.$store.state as AppStoreState).editor.currentFile.pathname
+    },
+    filename (): string {
+      return (this.$store.state as AppStoreState).editor.currentFile.filename
+    },
+    isSaved (): boolean {
+      return (this.$store.state as AppStoreState).editor.currentFile.isSaved
+    },
+    markdown (): string {
+      return (this.$store.state as AppStoreState).editor.currentFile.markdown
+    },
+    cursor (): DocumentState['cursor'] {
+      return (this.$store.state as AppStoreState).editor.currentFile.cursor
+    },
+    wordCount (): WordCount {
+      return (this.$store.state as AppStoreState).editor.currentFile.wordCount
+    },
+    windowActive (): boolean {
+      return (this.$store.state as AppStoreState).windowActive
+    },
+    platform (): string {
+      return (this.$store.state as AppStoreState).platform
+    },
+    init (): boolean {
+      return (this.$store.state as AppStoreState).init
+    },
+    hasCurrentFile (): boolean {
+      return typeof this.markdown !== 'undefined'
     }
   },
   watch: {
-    theme: function (value, oldValue) {
+    theme (value: string, oldValue: string) {
       if (value !== oldValue) {
         addThemeStyle(value)
       }
     },
-    zoom: function (zoom) {
+    zoom (zoom: number) {
       ipcRenderer.emit('mt::window-zoom', null, zoom)
     }
   },
   created () {
-    const { commit, dispatch } = this.$store
+    const store = this.$store as DispatchableStore
+    const { commit, dispatch } = store
 
-    // Apply initial state (theme and titleBarStyle) and delay load other values.
     if (global.marktext.initialState) {
       commit('SET_USER_PREFERENCE', global.marktext.initialState)
     }
 
-    // store/index.js
     dispatch('LINTEN_WIN_STATUS')
-    // module: command center
     dispatch('LISTEN_COMMAND_CENTER_BUS')
-    // module: tweet
     dispatch('LISTEN_FOR_TWEET')
-    // module: layout
     dispatch('LISTEN_FOR_LAYOUT')
-    // module: listenForMain
     dispatch('LISTEN_FOR_EDIT')
     dispatch('LISTEN_FOR_VIEW')
     dispatch('LISTEN_FOR_SHOW_DIALOG')
     dispatch('LISTEN_FOR_PARAGRAPH_INLINE_STYLE')
-    // module: project
     dispatch('LISTEN_FOR_UPDATE_PROJECT')
     dispatch('LISTEN_FOR_LOAD_PROJECT')
     dispatch('LISTEN_FOR_SIDEBAR_CONTEXT_MENU')
-    // module: autoUpdates
     dispatch('LISTEN_FOR_UPDATE')
-    // module: editor
     dispatch('LISTEN_SCREEN_SHOT')
     dispatch('ASK_FOR_USER_PREFERENCE')
     dispatch('LISTEN_TOGGLE_VIEW')
@@ -161,20 +213,18 @@ export default {
     dispatch('LISTEN_WINDOW_ZOOM')
     dispatch('LISTEN_FOR_RELOAD_IMAGES')
     dispatch('LISTEN_FOR_CONTEXT_MENU')
-
-    // module: notification
     dispatch('LISTEN_FOR_NOTIFICATION')
 
-    // prevent Chromium's default behavior and try to open the first file
-    window.addEventListener('dragover', e => {
-      // Cancel to allow tab drag&drop.
-      if (!e.dataTransfer.types.length) return
+    window.addEventListener('dragover', (event: DragEvent) => {
+      const dataTransfer = event.dataTransfer
+      if (!dataTransfer || !dataTransfer.types.length) {
+        return
+      }
 
-      if (e.dataTransfer.types.indexOf('Files') >= 0) {
-        if (e.dataTransfer.items.length === 1 && e.dataTransfer.items[0].type.indexOf('image') > -1) {
-          // Do nothing, because we already drag/drop image in muya.
-        } else {
-          e.preventDefault()
+      if (Array.from(dataTransfer.types).indexOf('Files') >= 0) {
+        const singleImage = dataTransfer.items.length === 1 && dataTransfer.items[0].type.indexOf('image') > -1
+        if (!singleImage) {
+          event.preventDefault()
           if (this.timer) {
             clearTimeout(this.timer)
           }
@@ -184,20 +234,19 @@ export default {
           bus.$emit('importDialog', true)
         }
 
-        e.dataTransfer.dropEffect = 'copy'
+        dataTransfer.dropEffect = 'copy'
       } else {
-        e.stopPropagation()
-        e.dataTransfer.dropEffect = 'none'
+        event.stopPropagation()
+        dataTransfer.dropEffect = 'none'
       }
     }, false)
 
     this.$nextTick(() => {
-      const style = global.marktext.initialState || DEFAULT_STYLE
-      addStyles(style)
-      this.hideLoadingPage()
+      addStyles(getInitialStyle())
+      ;(loadingPageMixins.methods as { hideLoadingPage(this: Vue): void }).hideLoadingPage.call(this)
     })
   }
-}
+})
 </script>
 
 <style scoped>

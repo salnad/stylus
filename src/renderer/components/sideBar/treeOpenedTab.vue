@@ -16,7 +16,6 @@
 
 <script lang="ts">
 import Vue, { type PropType } from 'vue'
-import { tabsMixins } from '../../mixins'
 import type { DocumentState } from '@/store/help'
 
 interface OpenedTabStoreState {
@@ -25,8 +24,12 @@ interface OpenedTabStoreState {
   }
 }
 
+type OpenedTabVm = Vue & {
+  file: DocumentState
+  currentFile: DocumentState
+}
+
 export default Vue.extend({
-  mixins: [tabsMixins],
   props: {
     file: {
       type: Object as PropType<DocumentState>,
@@ -36,6 +39,22 @@ export default Vue.extend({
   computed: {
     currentFile (): DocumentState {
       return (this.$store.state as OpenedTabStoreState).editor.currentFile
+    }
+  },
+  methods: {
+    selectFile () {
+      const vm = this as unknown as OpenedTabVm
+      if (vm.file.id !== vm.currentFile.id) {
+        vm.$store.dispatch('UPDATE_CURRENT_FILE', vm.file)
+      }
+    },
+    removeFileInTab () {
+      const vm = this as unknown as OpenedTabVm
+      if (vm.file.isSaved) {
+        vm.$store.dispatch('FORCE_CLOSE_TAB', vm.file)
+      } else {
+        vm.$store.dispatch('CLOSE_UNSAVED_TAB', vm.file)
+      }
     }
   }
 })

@@ -66,9 +66,9 @@ interface CommandPaletteItem {
 }
 
 interface PaletteCommand {
-  run(): Promise<void>
+  run?(): Promise<void>
   subcommands: CommandPaletteItem[]
-  subcommandSelectedIndex: number
+  subcommandSelectedIndex?: number
   placeholder?: string
   unload?(): void
   search?(query: string): Promise<CommandPaletteItem[]>
@@ -113,13 +113,13 @@ export default Vue.extend({
   methods: {
     handleShow (command?: PaletteCommand) {
       this.currentCommand = command || this.rootCommand
-      this.currentCommand.run()
+      Promise.resolve(this.currentCommand.run?.())
         .then(() => {
           if (!this.currentCommand) {
             return
           }
           this.availableCommands = this.currentCommand.subcommands
-          this.selectedCommandIndex = this.currentCommand.subcommandSelectedIndex
+          this.selectedCommandIndex = this.currentCommand.subcommandSelectedIndex ?? -1
           this.placeholderText = this.currentCommand.placeholder || this.defaultPlaceholderText
           this.query = ''
           this.showCommandPalette = true
@@ -284,7 +284,11 @@ export default Vue.extend({
         // Allow to load static commands without reloading command palette.
         if (execute === undefined && run === undefined && subcommands) {
           // Load subcommands
-          this.currentCommand = command
+          this.currentCommand = {
+            ...command,
+            subcommands,
+            subcommandSelectedIndex: -1
+          }
           // NOTE: selected index is always -1 by static state loaded this way.
           this.selectedCommandIndex = -1
           this.query = ''

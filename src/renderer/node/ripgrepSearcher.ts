@@ -32,7 +32,7 @@ interface SearchOptions {
   trailingContextLineCount?: number
 }
 
-interface SearchPromise extends Promise<void> {
+export interface SearchPromise extends Promise<void> {
   cancel(): void
 }
 

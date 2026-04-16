@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 import bus from '../bus'
 
-interface LayoutState {
+export interface LayoutState {
   rightColumn: string
   showSideBar: boolean
   showTabBar: boolean

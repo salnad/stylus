@@ -45,7 +45,6 @@ import Vue from 'vue'
 import { shell, clipboard } from 'electron'
 import autoScroll from 'dom-autoscroller'
 import dragula from 'dragula'
-import { tabsMixins } from '../../mixins'
 import { showContextMenu } from '../../contextMenu/tabs'
 import bus from '../../bus'
 import type { DocumentState } from '@/store/help'
@@ -70,8 +69,26 @@ interface DrakeLike {
 
 type MaybeElement = HTMLElement | SVGElement
 
+interface TabsComponentInstance extends Vue {
+  currentFile: DocumentState
+  tabs: DocumentState[]
+  autoScroller: AutoScrollerLike | null
+  drake: DrakeLike | null
+  selectFile(file: DocumentState): void
+  removeFileInTab(file: DocumentState): void
+  newFile(): void
+  handleTabScroll(event: WheelEvent): void
+  closeTab(tabId: string): void
+  closeOthers(tabId: string): void
+  closeSaved(): void
+  closeAll(): void
+  rename(tabId: string): void
+  copyPath(tabId: string): void
+  showInFolder(tabId: string): void
+  handleContextMenu(event: MouseEvent, tab: DocumentState): void
+}
+
 export default Vue.extend({
-  mixins: [tabsMixins],
   data () {
     return {
       autoScroller: null as AutoScrollerLike | null,
@@ -87,10 +104,22 @@ export default Vue.extend({
     }
   },
   methods: {
-    newFile () {
+    selectFile (this: TabsComponentInstance, file: DocumentState) {
+      if (file.id !== this.currentFile.id) {
+        this.$store.dispatch('UPDATE_CURRENT_FILE', file)
+      }
+    },
+    removeFileInTab (this: TabsComponentInstance, file: DocumentState) {
+      if (file.isSaved) {
+        this.$store.dispatch('FORCE_CLOSE_TAB', file)
+      } else {
+        this.$store.dispatch('CLOSE_UNSAVED_TAB', file)
+      }
+    },
+    newFile (this: TabsComponentInstance) {
       this.$store.dispatch('NEW_UNTITLED_TAB', {})
     },
-    handleTabScroll (event: WheelEvent) {
+    handleTabScroll (this: TabsComponentInstance, event: WheelEvent) {
       let delta = event.deltaY
       if (event.deltaX !== 0) {
         delta = event.deltaX
@@ -104,60 +133,62 @@ export default Vue.extend({
       const newLeft = Math.max(0, Math.min(tabContainer.scrollLeft + delta, tabContainer.scrollWidth))
       tabContainer.scrollLeft = newLeft
     },
-    closeTab (tabId: string) {
+    closeTab (this: TabsComponentInstance, tabId: string) {
       const tab = this.tabs.find(file => file.id === tabId)
       if (tab) {
         this.$store.dispatch('CLOSE_TAB', tab)
       }
     },
-    closeOthers (tabId: string) {
+    closeOthers (this: TabsComponentInstance, tabId: string) {
       const tab = this.tabs.find(file => file.id === tabId)
       if (tab) {
         this.$store.dispatch('CLOSE_OTHER_TABS', tab)
       }
     },
-    closeSaved () {
+    closeSaved (this: TabsComponentInstance) {
       this.$store.dispatch('CLOSE_SAVED_TABS')
     },
-    closeAll () {
+    closeAll (this: TabsComponentInstance) {
       this.$store.dispatch('CLOSE_ALL_TABS')
     },
-    rename (tabId: string) {
+    rename (this: TabsComponentInstance, tabId: string) {
       const tab = this.tabs.find(file => file.id === tabId)
       if (tab?.pathname) {
         this.$store.dispatch('RENAME_FILE', tab)
       }
     },
-    copyPath (tabId: string) {
+    copyPath (this: TabsComponentInstance, tabId: string) {
       const tab = this.tabs.find(file => file.id === tabId)
       if (tab?.pathname) {
         clipboard.writeText(tab.pathname)
       }
     },
-    showInFolder (tabId: string) {
+    showInFolder (this: TabsComponentInstance, tabId: string) {
       const tab = this.tabs.find(file => file.id === tabId)
       if (tab?.pathname) {
         shell.showItemInFolder(tab.pathname)
       }
     },
-    handleContextMenu (event: MouseEvent, tab: DocumentState) {
+    handleContextMenu (this: TabsComponentInstance, event: MouseEvent, tab: DocumentState) {
       if (tab.id) {
         showContextMenu(event, tab)
       }
     }
   },
   created () {
+    const vm = this as unknown as TabsComponentInstance
     this.$nextTick(() => {
-      bus.$on('TABS::close-this', this.closeTab)
-      bus.$on('TABS::close-others', this.closeOthers)
-      bus.$on('TABS::close-saved', this.closeSaved)
-      bus.$on('TABS::close-all', this.closeAll)
-      bus.$on('TABS::rename', this.rename)
-      bus.$on('TABS::copy-path', this.copyPath)
-      bus.$on('TABS::show-in-folder', this.showInFolder)
+      bus.$on('TABS::close-this', vm.closeTab)
+      bus.$on('TABS::close-others', vm.closeOthers)
+      bus.$on('TABS::close-saved', vm.closeSaved)
+      bus.$on('TABS::close-all', vm.closeAll)
+      bus.$on('TABS::rename', vm.rename)
+      bus.$on('TABS::copy-path', vm.copyPath)
+      bus.$on('TABS::show-in-folder', vm.showInFolder)
     })
   },
   mounted () {
+    const vm = this as unknown as TabsComponentInstance
     this.$nextTick(() => {
       const tabContainer = this.$refs.tabContainer as HTMLElement | undefined
       const tabDropContainer = this.$refs.tabDropContainer as HTMLElement | undefined
@@ -165,7 +196,8 @@ export default Vue.extend({
         return
       }
 
-      tabContainer.addEventListener('wheel', this.handleTabScroll)
+      const handleTabScroll = vm.handleTabScroll as (event: WheelEvent) => void
+      tabContainer.addEventListener('wheel', handleTabScroll)
 
       const drake = dragula([tabDropContainer], {
         direction: 'horizontal',
@@ -182,43 +214,45 @@ export default Vue.extend({
           throw new Error('Cannot reorder tabs: invalid tab id.')
         }
 
-        this.$store.dispatch('EXCHANGE_TABS_BY_ID', {
+        vm.$store.dispatch('EXCHANGE_TABS_BY_ID', {
           fromId: droppedId,
           toId: isLastTab ? null : nextTabId
         })
       })
-      this.drake = drake
+      vm.drake = drake
 
-      this.autoScroller = autoScroll([tabContainer as unknown as MaybeElement], {
+      vm.autoScroller = autoScroll([tabContainer as unknown as MaybeElement], {
         margin: 20,
         maxSpeed: 6,
         scrollWhenOutside: false,
         autoScroll: () => {
-          return !!this.autoScroller?.down && !!drake.dragging
+          return !!vm.autoScroller?.down && !!drake.dragging
         }
       }) as AutoScrollerLike
     })
   },
   beforeDestroy () {
+    const vm = this as unknown as TabsComponentInstance
     const tabContainer = this.$refs.tabContainer as HTMLElement | undefined
-    tabContainer?.removeEventListener('wheel', this.handleTabScroll)
+    const handleTabScroll = vm.handleTabScroll as (event: WheelEvent) => void
+    tabContainer?.removeEventListener('wheel', handleTabScroll)
 
-    if (this.autoScroller) {
-      this.autoScroller.destroy(true)
-      this.autoScroller = null
+    if (vm.autoScroller) {
+      vm.autoScroller.destroy(true)
+      vm.autoScroller = null
     }
-    if (this.drake) {
-      this.drake.destroy()
-      this.drake = null
+    if (vm.drake) {
+      vm.drake.destroy()
+      vm.drake = null
     }
 
-    bus.$off('TABS::close-this', this.closeTab)
-    bus.$off('TABS::close-others', this.closeOthers)
-    bus.$off('TABS::close-saved', this.closeSaved)
-    bus.$off('TABS::close-all', this.closeAll)
-    bus.$off('TABS::rename', this.rename)
-    bus.$off('TABS::copy-path', this.copyPath)
-    bus.$off('TABS::show-in-folder', this.showInFolder)
+    bus.$off('TABS::close-this', vm.closeTab)
+    bus.$off('TABS::close-others', vm.closeOthers)
+    bus.$off('TABS::close-saved', vm.closeSaved)
+    bus.$off('TABS::close-all', vm.closeAll)
+    bus.$off('TABS::rename', vm.rename)
+    bus.$off('TABS::copy-path', vm.copyPath)
+    bus.$off('TABS::show-in-folder', vm.showInFolder)
   }
 })
 </script>

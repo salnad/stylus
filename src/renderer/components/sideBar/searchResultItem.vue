@@ -59,9 +59,11 @@
 </template>
 
 <script lang="ts">
-import Vue from 'vue'
+import Vue, { type PropType } from 'vue'
 import path from 'path'
-import { fileMixins } from '../../mixins'
+import { ipcRenderer } from 'electron'
+import { isSamePathSync } from 'common/filesystem/paths'
+import bus from '../../bus'
 import { PATH_SEPARATOR } from '../../config'
 import type { DocumentState } from '@/store/help'
 
@@ -75,6 +77,18 @@ interface SearchResult {
   matches: SearchMatch[]
 }
 
+interface SearchCursor {
+  isCollapsed: boolean
+  anchor: {
+    line: number
+    ch: number
+  }
+  focus: {
+    line: number
+    ch: number
+  }
+}
+
 interface SearchResultItemStoreState {
   editor: {
     tabs: DocumentState[]
@@ -82,29 +96,38 @@ interface SearchResultItemStoreState {
   }
 }
 
+type SearchResultItemInstance = Vue & {
+  searchResult: SearchResult
+  currentFile: DocumentState
+  tabs: DocumentState[]
+  showSearchMatches: boolean
+  allMatchesShown: boolean
+  shownMatches: number
+}
+
 export default Vue.extend({
-  mixins: [fileMixins],
-  data () {
+  data (this: SearchResultItemInstance) {
+    const { searchResult } = this
     return {
-      showSearchMatches: this.searchResult.matches.length <= 20,
-      allMatchesShown: this.searchResult.matches.length <= 10,
+      showSearchMatches: searchResult.matches.length <= 20,
+      allMatchesShown: searchResult.matches.length <= 10,
       shownMatches: 10
     }
   },
   props: {
     searchResult: {
-      type: Object as () => SearchResult,
+      type: Object as PropType<SearchResult>,
       required: true
     }
   },
   computed: {
     tabs (): DocumentState[] {
-      return (this.$store.state as SearchResultItemStoreState).editor.tabs
+      return ((this.$store as unknown) as { state: SearchResultItemStoreState }).state.editor.tabs
     },
     currentFile (): DocumentState {
-      return (this.$store.state as SearchResultItemStoreState).editor.currentFile
+      return ((this.$store as unknown) as { state: SearchResultItemStoreState }).state.editor.currentFile
     },
-    getMatches (): SearchMatch[] {
+    getMatches (this: SearchResultItemInstance): SearchMatch[] {
       if (this.searchResult.matches.length === 0 || this.allMatchesShown) {
         return this.searchResult.matches
       }
@@ -112,34 +135,66 @@ export default Vue.extend({
     },
 
     // Return filename without extension.
-    filename (): string {
+    filename (this: SearchResultItemInstance): string {
       return path.basename(this.searchResult.filePath, path.extname(this.searchResult.filePath))
     },
 
-    matchCount (): number {
+    matchCount (this: SearchResultItemInstance): number {
       return this.searchResult.matches.length
     },
 
     // Return the filename extension or null.
-    extension (): string {
+    extension (this: SearchResultItemInstance): string {
       return path.extname(this.searchResult.filePath)
     },
 
     // Return the parent directory with trailing path separator.
-    dirname (): string {
+    dirname (this: SearchResultItemInstance): string {
       return path.join(path.dirname(this.searchResult.filePath), PATH_SEPARATOR)
     }
   },
   methods: {
+    handleSearchResultClick (searchMatch: SearchMatch) {
+      const vm = this as unknown as SearchResultItemInstance
+      const { range } = searchMatch
+      const { filePath } = vm.searchResult
+
+      const openedTab = vm.tabs.find(file => isSamePathSync(file.pathname, filePath))
+      const cursor: SearchCursor = {
+        isCollapsed: range[0][0] !== range[1][0],
+        anchor: {
+          line: range[0][0],
+          ch: range[0][1]
+        },
+        focus: {
+          line: range[1][0],
+          ch: range[1][1]
+        }
+      }
+
+      if (openedTab) {
+        openedTab.cursor = cursor
+        if (vm.currentFile !== openedTab) {
+          vm.$store.dispatch('UPDATE_CURRENT_FILE', openedTab)
+        } else {
+          const { id, markdown, history } = vm.currentFile
+          bus.$emit('file-changed', { id, markdown, cursor, renderCursor: true, history })
+        }
+      } else {
+        ipcRenderer.send('mt::open-file', filePath, { cursor })
+      }
+    },
     toggleSearchMatches () {
-      this.showSearchMatches = !this.showSearchMatches
+      const vm = this as unknown as SearchResultItemInstance
+      vm.showSearchMatches = !vm.showSearchMatches
     },
 
     handleShowMoreMatches (event: MouseEvent) {
-      this.shownMatches += 15
+      const vm = this as unknown as SearchResultItemInstance
+      vm.shownMatches += 15
       if (event.ctrlKey || event.metaKey ||
-          this.shownMatches >= this.searchResult.matches.length) {
-        this.allMatchesShown = true
+          vm.shownMatches >= vm.searchResult.matches.length) {
+        vm.allMatchesShown = true
       }
     },
 

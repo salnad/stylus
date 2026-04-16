@@ -80,8 +80,10 @@ export default Vue.extend({
         return
       }
 
-      const item = notifications.shift()
-      item?.action?.(status)
+      const item = notifications.shift() as TabNotification | undefined
+      if (item && typeof item.action === 'function') {
+        item.action(status)
+      }
     }
   }
 })

@@ -26,7 +26,8 @@
 <script lang="ts">
 import Vue, { type PropType } from 'vue'
 import FileIcon from './icon.vue'
-import { fileMixins } from '../../mixins'
+import { ipcRenderer } from 'electron'
+import { isSamePathSync } from 'common/filesystem/paths'
 import { showContextMenu } from '../../contextMenu/sideBar'
 import bus from '../../bus'
 import type { TreeFileEntry } from '@/store/treeCtrl'
@@ -44,8 +45,17 @@ interface ProjectStoreState {
   }
 }
 
+interface TreeFileVm extends Vue {
+  file: TreeFileEntry
+  currentFile: DocumentState
+  tabs: DocumentState[]
+  clipboard: unknown
+  newName: string
+  focusRenameInput(): void
+  handleContextMenu(event: MouseEvent): void
+}
+
 export default Vue.extend({
-  mixins: [fileMixins],
   name: 'file',
   components: {
     FileIcon
@@ -83,33 +93,54 @@ export default Vue.extend({
     }
   },
   created () {
+    const vm = this as unknown as TreeFileVm
     this.$nextTick(() => {
-      (this.$refs.file as HTMLDivElement | undefined)?.addEventListener('contextmenu', this.handleContextMenu)
-      bus.$on('SIDEBAR::show-rename-input', this.focusRenameInput)
+      (this.$refs.file as HTMLDivElement | undefined)?.addEventListener('contextmenu', vm.handleContextMenu as (event: MouseEvent) => void)
+      bus.$on('SIDEBAR::show-rename-input', vm.focusRenameInput)
     })
   },
   beforeDestroy () {
-    bus.$off('SIDEBAR::show-rename-input', this.focusRenameInput)
+    const vm = this as unknown as TreeFileVm
+    bus.$off('SIDEBAR::show-rename-input', vm.focusRenameInput)
   },
   methods: {
     noop () {},
+    handleFileClick () {
+      const vm = this as unknown as TreeFileVm
+      const { file } = vm
+      const { isMarkdown, pathname } = file
+      if (!isMarkdown || !pathname) return
+
+      const openedTab = vm.tabs.find(tab => isSamePathSync(tab.pathname, pathname))
+      if (openedTab) {
+        if (vm.currentFile === openedTab) {
+          return
+        }
+        vm.$store.dispatch('UPDATE_CURRENT_FILE', openedTab)
+      } else {
+        ipcRenderer.send('mt::open-file', pathname, {})
+      }
+    },
     handleContextMenu (event: MouseEvent) {
+      const vm = this as unknown as TreeFileVm
       event.preventDefault()
-      this.$store.dispatch('CHANGE_ACTIVE_ITEM', this.file)
-      showContextMenu(event, !!this.clipboard)
+      vm.$store.dispatch('CHANGE_ACTIVE_ITEM', vm.file)
+      showContextMenu(event, !!vm.clipboard)
     },
     focusRenameInput () {
+      const vm = this as unknown as TreeFileVm
       this.$nextTick(() => {
         const renameInput = this.$refs.renameInput as HTMLInputElement | undefined
         if (renameInput) {
           renameInput.focus()
-          this.newName = this.file.name
+          vm.newName = vm.file.name
         }
       })
     },
     rename () {
-      if (this.newName) {
-        this.$store.dispatch('RENAME_IN_SIDEBAR', this.newName)
+      const vm = this as unknown as TreeFileVm
+      if (vm.newName) {
+        vm.$store.dispatch('RENAME_IN_SIDEBAR', vm.newName)
       }
     }
   }

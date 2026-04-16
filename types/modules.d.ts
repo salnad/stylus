@@ -177,3 +177,36 @@ declare module 'plist' {
   }
   export default plist
 }
+
+declare module 'dom-autoscroller' {
+  interface AutoScroller {
+    down?: boolean
+    destroy(force?: boolean): void
+  }
+
+  interface AutoScrollerOptions {
+    margin?: number
+    maxSpeed?: number
+    scrollWhenOutside?: boolean
+    autoScroll?: () => boolean
+  }
+
+  export default function autoScroll(elements: Element[], options?: AutoScrollerOptions): AutoScroller
+}
+
+declare module 'dragula' {
+  interface DragulaOptions {
+    direction?: 'horizontal' | 'vertical'
+    revertOnSpill?: boolean
+    mirrorContainer?: Element
+    ignoreInputTextSelection?: boolean
+  }
+
+  interface Drake {
+    dragging?: boolean
+    destroy(): void
+    on(event: 'drop', handler: (el: Element, target: Element | null, source: Element | null, sibling: Element | null) => void): Drake
+  }
+
+  export default function dragula(containers?: Element[], options?: DragulaOptions): Drake
+}

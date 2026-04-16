@@ -99,12 +99,15 @@ import { MARKDOWN_INCLUSIONS } from '../../../common/filesystem/paths'
 import type { DocumentState, SearchMatches } from '@/store/help'
 import type { TreeFolderEntry } from '@/store/treeCtrl'
 import type { PreferencesState } from '@/store/preferences'
-import type { LayoutState } from '@/store/layout'
+import type { SearchPromise } from '../../node/ripgrepSearcher'
 
 type CancelSearchCallback = (() => void) | null
 
 interface SearchStoreState {
-  layout: Pick<LayoutState, 'rightColumn' | 'showSideBar'>
+  layout: {
+    rightColumn: string
+    showSideBar: boolean
+  }
   editor: {
     currentFile: Pick<DocumentState, 'searchMatches'>
   }
@@ -239,7 +242,7 @@ export default Vue.extend({
       const promises = ripgrepDirectorySearcher.search([rootDirectoryPath], keyword, {
         didMatch: searchResult => {
           if (!canceled) {
-            newSearchResult.push(searchResult)
+            newSearchResult.push(searchResult as SearchResult)
           }
         },
         didSearchPaths: numPathsFound => {
@@ -257,8 +260,10 @@ export default Vue.extend({
         includeHidden: this.searchIncludeHidden,
         noIgnore: this.searchNoIgnore,
         followSymlinks: this.searchFollowSymlinks,
-        inclusions: MARKDOWN_INCLUSIONS
-      })
+        inclusions: [...MARKDOWN_INCLUSIONS]
+      }) as SearchPromise
+
+      promises
         .then(() => {
           this.searchResult = newSearchResult
           this.searcherRunning = false
