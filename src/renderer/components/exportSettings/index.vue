@@ -218,26 +218,105 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
 import path from 'path'
 import { isDirectory, isFile } from 'common/filesystem'
 import bus from '../../bus'
-import Bool from '@/prefComponents/common/bool'
-import CurSelect from '@/prefComponents/common/select'
-import FontTextBox from '@/prefComponents/common/fontTextBox'
-import Range from '@/prefComponents/common/range'
-import TextBox from '@/prefComponents/common/textBox'
+import Bool from '@/prefComponents/common/bool/index.vue'
+import CurSelect from '@/prefComponents/common/select/index.vue'
+import FontTextBox from '@/prefComponents/common/fontTextBox/index.vue'
+import Range from '@/prefComponents/common/range/index.vue'
+import TextBox from '@/prefComponents/common/textBox/index.vue'
 import {
   pageSizeList,
   headerFooterTypes,
   headerFooterStyles,
-  exportThemeList
+  exportThemeList,
+  type SelectOption
 } from './exportOptions'
 
-export default {
+type ExportType = 'pdf' | 'print' | 'styledHtml'
+type ActiveTabName = 'info' | 'page' | 'style' | 'theme' | 'header' | 'toc'
+
+interface HeaderFooterSection {
+  type: number
+  left: string
+  center: string
+  right: string
+}
+
+interface ExportPayload {
+  type: ExportType
+  pageSize: string
+  pageSizeWidth: number
+  pageSizeHeight: number
+  isLandscape: boolean
+  pageMarginTop: number
+  pageMarginRight: number
+  pageMarginBottom: number
+  pageMarginLeft: number
+  autoNumberingHeadings: boolean
+  showFrontMatter: boolean
+  theme: string | null
+  tocTitle: string
+  tocIncludeTopHeading: boolean
+  htmlTitle?: string
+  fontSize?: number
+  lineHeight?: number
+  fontFamily?: string | null
+  header?: HeaderFooterSection
+  footer?: HeaderFooterSection
+  headerFooterStyled?: boolean
+  headerFooterFontSize?: number
+}
+
+interface ExportSettingsState {
+  exportType: ExportType
+  themesLoaded: boolean
+  pageSizeList: SelectOption<string>[]
+  headerFooterTypes: SelectOption<number>[]
+  headerFooterStyles: SelectOption<number>[]
+  isPrintable: boolean
+  showExportSettingsDialog: boolean
+  activeName: ActiveTabName
+  htmlTitle: string
+  pageSize: string
+  pageSizeWidth: number
+  pageSizeHeight: number
+  isLandscape: boolean
+  pageMarginTop: number
+  pageMarginRight: number
+  pageMarginBottom: number
+  pageMarginLeft: number
+  fontSettingsOverwrite: boolean
+  fontFamily: string
+  fontSize: number
+  lineHeight: number
+  autoNumberingHeadings: boolean
+  showFrontMatter: boolean
+  theme: string
+  themeList: SelectOption<string>[]
+  headerType: number
+  headerTextLeft: string
+  headerTextCenter: string
+  headerTextRight: string
+  footerType: number
+  footerTextLeft: string
+  footerTextCenter: string
+  footerTextRight: string
+  headerFooterCustomize: boolean
+  headerFooterStyled: boolean
+  headerFooterFontSize: number
+  tocTitle: string
+  tocIncludeTopHeading: boolean
+}
+
+type ExportSettingsVm = Vue & ExportSettingsState
+
+export default Vue.extend({
   components: {
     Bool,
     CurSelect,
@@ -246,15 +325,15 @@ export default {
     TextBox
   },
   data () {
-    this.exportType = ''
-    this.themesLoaded = false
-    this.pageSizeList = pageSizeList
-    this.headerFooterTypes = headerFooterTypes
-    this.headerFooterStyles = headerFooterStyles
     return {
+      exportType: 'pdf' as ExportType,
+      themesLoaded: false,
+      pageSizeList,
+      headerFooterTypes,
+      headerFooterStyles,
       isPrintable: true,
       showExportSettingsDialog: false,
-      activeName: 'info',
+      activeName: 'info' as ActiveTabName,
       htmlTitle: '',
       pageSize: 'A4',
       pageSizeWidth: 210,
@@ -271,7 +350,7 @@ export default {
       autoNumberingHeadings: false,
       showFrontMatter: false,
       theme: 'default',
-      themeList: exportThemeList,
+      themeList: exportThemeList.slice(),
       headerType: 0,
       headerTextLeft: '',
       headerTextCenter: '',
@@ -287,10 +366,6 @@ export default {
       tocIncludeTopHeading: true
     }
   },
-  computed: {
-    ...mapState({
-    })
-  },
   created () {
     bus.$on('showExportDialog', this.showDialog)
   },
@@ -298,22 +373,24 @@ export default {
     bus.$off('showExportDialog', this.showDialog)
   },
   methods: {
-    showDialog (type) {
-      this.exportType = type
-      this.isPrintable = type !== 'styledHtml'
-      if (!this.isPrintable && (this.activeName === 'header' || this.activeName === 'page')) {
-        this.activeName = 'info'
+    showDialog (type: ExportType) {
+      const vm = this as ExportSettingsVm
+      vm.exportType = type
+      vm.isPrintable = type !== 'styledHtml'
+      if (!vm.isPrintable && (vm.activeName === 'header' || vm.activeName === 'page')) {
+        vm.activeName = 'info'
       }
 
-      this.showExportSettingsDialog = true
+      vm.showExportSettingsDialog = true
       bus.$emit('editor-blur')
 
-      if (!this.themesLoaded) {
-        this.themesLoaded = true
+      if (!vm.themesLoaded) {
+        vm.themesLoaded = true
         this.loadThemesFromDisk()
       }
     },
     handleClicked () {
+      const vm = this as ExportSettingsVm
       const {
         exportType,
         isPrintable,
@@ -346,8 +423,8 @@ export default {
         headerFooterFontSize,
         tocTitle,
         tocIncludeTopHeading
-      } = this
-      const options = {
+      } = vm
+      const options: ExportPayload = {
         type: exportType,
         pageSize,
         pageSizeWidth,
@@ -405,47 +482,40 @@ export default {
         })
       }
 
-      this.showExportSettingsDialog = false
+      vm.showExportSettingsDialog = false
       bus.$emit('export', options)
     },
-    onSelectChange (key, value) {
-      this[key] = value
+    onSelectChange<K extends keyof ExportSettingsState> (key: K, value: ExportSettingsState[K]) {
+      const vm = this as ExportSettingsVm
+      ;(vm as unknown as ExportSettingsState)[key] = value
     },
     loadThemesFromDisk () {
       const { userDataPath } = global.marktext.paths
       const themeDir = path.join(userDataPath, 'themes/export')
 
-      // Search for dictionaries on filesystem.
       if (isDirectory(themeDir)) {
-        fs.readdirSync(themeDir).forEach(async filename => {
+        for (const filename of fs.readdirSync(themeDir)) {
           const fullname = path.join(themeDir, filename)
           if (/.+\.css$/i.test(filename) && isFile(fullname)) {
-            try {
-              const content = await fsPromises.readFile(fullname, 'utf8')
+            fsPromises.readFile(fullname, 'utf8')
+              .then(content => {
+                const match = content.match(/^(?:\/\*+[ \t]*([A-z0-9 -]+)[ \t]*(?:\*+\/|[\n\r])?)/)
+                const label = match && match[1] ? match[1] : filename
 
-              // Match comment with theme name in first line only.
-              const match = content.match(/^(?:\/\*+[ \t]*([A-z0-9 -]+)[ \t]*(?:\*+\/|[\n\r])?)/)
-
-              let label
-              if (match && match[1]) {
-                label = match[1]
-              } else {
-                label = filename
-              }
-
-              this.themeList.push({
-                value: filename,
-                label
+                ;(this as ExportSettingsVm).themeList.push({
+                  value: filename,
+                  label
+                })
               })
-            } catch (e) {
-              console.error('loadThemesFromDisk failed:', e)
-            }
+              .catch((error: Error) => {
+                console.error('loadThemesFromDisk failed:', error)
+              })
           }
-        })
+        }
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>
