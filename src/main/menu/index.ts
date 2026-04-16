@@ -335,7 +335,7 @@ class AppMenu {
         log.error(`UpdateApplicationMenu: Cannot find window menu for window id ${windowId}.`)
         return
       }
-      updateSelectionMenus(this.getWindowMenuById(windowId) as never, changes)
+      updateSelectionMenus(this.getWindowMenuById(windowId) as never, changes as never)
     })
 
     ipcMain.on('menu-add-recently-used', (_event, pathname: string) => {

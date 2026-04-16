@@ -4,7 +4,8 @@ import { loadTabCommands } from './tab'
 
 export const COMMANDS = COMMAND_CONSTANTS
 
-export type CommandCallback = (...args: unknown[]) => unknown
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type CommandCallback = (...args: any[]) => unknown
 
 export interface CommandManagerContract {
   add(id: string, callback: CommandCallback): void
