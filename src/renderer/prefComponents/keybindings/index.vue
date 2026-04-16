@@ -46,52 +46,62 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { ipcRenderer, shell } from 'electron'
 import log from 'electron-log'
 import { setKeyboardLayout } from '@hfelix/electron-localshortcut'
-import Compound from '../common/compound'
-import Separator from '../common/separator'
+import type { IKeyboardMapping } from '@hfelix/electron-localshortcut/types/atom-keymap/helpers'
+import Separator from '../common/separator/index.vue'
 import KeyInputDialog from './key-input-dialog.vue'
-import KeybindingConfigurator from './KeybindingConfigurator'
+import KeybindingConfigurator, { type UIKeybindingEntry } from './KeybindingConfigurator'
 import notice from '@/services/notification'
 
-export default {
+interface KeyboardInfoResponse {
+  layout: unknown
+  keymap: Record<string, IKeyboardMapping>
+}
+
+interface KeybindingResponse {
+  defaultKeybindings: Map<string, string>
+  userKeybindings: Map<string, string>
+}
+
+export default Vue.extend({
   components: {
-    Compound,
     Separator,
     KeyInputDialog
   },
   data () {
     return {
       showDebugTools: false,
-      keybindingConfigurator: null,
-      selectedShortcutId: null,
-      keybindingList: []
+      keybindingConfigurator: null as KeybindingConfigurator | null,
+      selectedShortcutId: null as string | null,
+      keybindingList: [] as UIKeybindingEntry[]
     }
   },
 
   mounted () {
     ipcRenderer.invoke('mt::keybinding-get-keyboard-info')
-      .then(({ layout, keymap }) => {
+      .then(({ layout, keymap }: KeyboardInfoResponse) => {
         // Update the key mapper to prevent problems on non-US keyboards.
         setKeyboardLayout(layout, keymap)
       })
-      .catch(error => log.error('Error while loading keyboard information for settings:', error))
+      .catch((error: Error) => log.error('Error while loading keyboard information for settings:', error))
 
     ipcRenderer.invoke('mt::keybinding-get-pref-keybindings')
-      .then(({ defaultKeybindings, userKeybindings }) => {
+      .then(({ defaultKeybindings, userKeybindings }: KeybindingResponse) => {
         this.keybindingConfigurator = new KeybindingConfigurator(defaultKeybindings, userKeybindings)
         this.keybindingList = this.keybindingConfigurator.getKeybindings()
       })
-      .catch(error => log.error('Error while loading keyboard information for settings:', error))
+      .catch((error: Error) => log.error('Error while loading keyboard information for settings:', error))
 
     // Show keyboard debugging tools which has been moved from CLI because we
     // need an active window on Windows.
     this.showDebugTools = global.marktext.env.debug
   },
 
-  unmounted () {
+  beforeDestroy () {
     this.keybindingList = []
     this.keybindingConfigurator = null
   },
@@ -112,10 +122,14 @@ export default {
               })
             }
           })
-          .catch(error => log.error(error))
+          .catch((error: Error) => log.error(error))
       }
     },
     restoreDefaults () {
+      if (!this.keybindingConfigurator) {
+        return
+      }
+
       this.keybindingConfigurator.resetAll()
         .then(success => {
           if (!success) {
@@ -126,27 +140,30 @@ export default {
             })
           }
         })
-        .catch(error => log.error(error))
+        .catch((error: Error) => log.error(error))
     },
-    handleEditClick (index, entry) {
-      if (index >= 0 && entry) {
+    handleEditClick (_index: number, entry: UIKeybindingEntry) {
+      if (entry) {
         this.selectedShortcutId = entry.id
       }
     },
-    handleResetClick (index, entry) {
+    handleResetClick (_index: number, entry: UIKeybindingEntry) {
       const { keybindingConfigurator } = this
+      if (!keybindingConfigurator) {
+        return
+      }
       const { id } = entry
       const success = keybindingConfigurator.resetToDefault(id)
       if (!success) {
         this.handleDuplicateShortcut(id, keybindingConfigurator.getDefaultAccelerator(id))
       }
     },
-    handleUnbindClick (index, entry) {
-      this.keybindingConfigurator.unbind(entry.id)
+    handleUnbindClick (_index: number, entry: UIKeybindingEntry) {
+      this.keybindingConfigurator?.unbind(entry.id)
     },
-    onKeybinding (value) {
+    onKeybinding (value: string | null) {
       const selectedId = this.selectedShortcutId
-      if (value && selectedId) {
+      if (value && selectedId && this.keybindingConfigurator) {
         const success = this.keybindingConfigurator.change(selectedId, value)
         if (!success) {
           this.handleDuplicateShortcut(selectedId, value)
@@ -154,18 +171,18 @@ export default {
       }
       this.selectedShortcutId = null
     },
-    handleDuplicateShortcut (id, accelerator) {
+    handleDuplicateShortcut (_id: string, accelerator?: string) {
       notice.notify({
         title: 'Shortcut already in use',
         type: 'warning',
-        message: `The shortcut "${accelerator}" is already in use. Please unset the shortcut and try again.`
+        message: `The shortcut "${accelerator ?? ''}" is already in use. Please unset the shortcut and try again.`
       })
     },
     dumpKeyboardInformation () {
       ipcRenderer.send('mt::keybinding-debug-dump-keyboard-info')
     }
   }
-}
+})
 </script>
 
 <style scoped>

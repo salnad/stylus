@@ -112,12 +112,12 @@
   </div>
 </template>
 
-<script>
-import Compound from '../common/compound'
-import Separator from '../common/separator'
-import { mapState } from 'vuex'
-import Bool from '../common/bool'
-import CurSelect from '../common/select'
+<script lang="ts">
+import Vue from 'vue'
+import type { PreferenceState } from 'common/types/preferences'
+import Compound from '../common/compound/index.vue'
+import Bool from '../common/bool/index.vue'
+import CurSelect from '../common/select/index.vue'
 import {
   bulletListMarkerOptions,
   orderListDelimiterOptions,
@@ -127,43 +127,80 @@ import {
   sequenceThemeOptions
 } from './config'
 
-export default {
+interface PreferencesRootState {
+  preferences: PreferenceState
+}
+
+type MarkdownPreferenceKey =
+  | 'preferLooseListItem'
+  | 'bulletListMarker'
+  | 'orderListDelimiter'
+  | 'preferHeadingStyle'
+  | 'listIndentation'
+  | 'frontmatterType'
+  | 'superSubScript'
+  | 'footnote'
+  | 'isHtmlEnabled'
+  | 'isGitlabCompatibilityEnabled'
+  | 'sequenceTheme'
+
+export default Vue.extend({
   components: {
     Compound,
-    Separator,
     Bool,
     CurSelect
   },
   data () {
-    this.bulletListMarkerOptions = bulletListMarkerOptions
-    this.orderListDelimiterOptions = orderListDelimiterOptions
-    this.preferHeadingStyleOptions = preferHeadingStyleOptions
-    this.listIndentationOptions = listIndentationOptions
-    this.frontmatterTypeOptions = frontmatterTypeOptions
-    this.sequenceThemeOptions = sequenceThemeOptions
-    return {}
+    return {
+      bulletListMarkerOptions,
+      orderListDelimiterOptions,
+      preferHeadingStyleOptions,
+      listIndentationOptions,
+      frontmatterTypeOptions,
+      sequenceThemeOptions
+    }
   },
   computed: {
-    ...mapState({
-      preferLooseListItem: state => state.preferences.preferLooseListItem,
-      bulletListMarker: state => state.preferences.bulletListMarker,
-      orderListDelimiter: state => state.preferences.orderListDelimiter,
-      preferHeadingStyle: state => state.preferences.preferHeadingStyle,
-      listIndentation: state => state.preferences.listIndentation,
-      frontmatterType: state => state.preferences.frontmatterType,
-      superSubScript: state => state.preferences.superSubScript,
-      footnote: state => state.preferences.footnote,
-      isHtmlEnabled: state => state.preferences.isHtmlEnabled,
-      isGitlabCompatibilityEnabled: state => state.preferences.isGitlabCompatibilityEnabled,
-      sequenceTheme: state => state.preferences.sequenceTheme
-    })
+    preferLooseListItem (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.preferLooseListItem
+    },
+    bulletListMarker (): PreferenceState['bulletListMarker'] {
+      return (this.$store.state as PreferencesRootState).preferences.bulletListMarker
+    },
+    orderListDelimiter (): PreferenceState['orderListDelimiter'] {
+      return (this.$store.state as PreferencesRootState).preferences.orderListDelimiter
+    },
+    preferHeadingStyle (): PreferenceState['preferHeadingStyle'] {
+      return (this.$store.state as PreferencesRootState).preferences.preferHeadingStyle
+    },
+    listIndentation (): PreferenceState['listIndentation'] {
+      return (this.$store.state as PreferencesRootState).preferences.listIndentation
+    },
+    frontmatterType (): PreferenceState['frontmatterType'] {
+      return (this.$store.state as PreferencesRootState).preferences.frontmatterType
+    },
+    superSubScript (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.superSubScript
+    },
+    footnote (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.footnote
+    },
+    isHtmlEnabled (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.isHtmlEnabled
+    },
+    isGitlabCompatibilityEnabled (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.isGitlabCompatibilityEnabled
+    },
+    sequenceTheme (): PreferenceState['sequenceTheme'] {
+      return (this.$store.state as PreferencesRootState).preferences.sequenceTheme
+    }
   },
   methods: {
-    onSelectChange (type, value) {
+    onSelectChange (type: MarkdownPreferenceKey, value: PreferenceState[MarkdownPreferenceKey]) {
       this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
     }
   }
-}
+})
 </script>
 
 <style scoped>

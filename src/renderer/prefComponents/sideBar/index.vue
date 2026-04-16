@@ -33,48 +33,53 @@
     </section>
   </div>
 </template>
-<script>
-import { ipcRenderer } from 'electron'
+<script lang="ts">
+import Vue from 'vue'
+import { ipcRenderer, type IpcRendererEvent } from 'electron'
+import type { Route } from 'vue-router'
 import { category, searchContent } from './config'
 
-export default {
+type PreferenceCategory = typeof category[number]
+type PreferenceSearchEntry = typeof searchContent[number]
+
+export default Vue.extend({
   data () {
-    this.category = category
     return {
+      category,
       currentCategory: 'general',
-      restaurants: [],
+      restaurants: [] as PreferenceSearchEntry[],
       state: ''
     }
   },
   watch: {
-    '$route' (to, from) {
+    '$route' (to: Route, from: Route) {
       if (to.name !== from.name) {
-        this.currentCategory = to.name
+        this.currentCategory = to.name ?? this.currentCategory
       }
     }
   },
   methods: {
-    querySearch (queryString, cb) {
+    querySearch (queryString: string, cb: (items: PreferenceSearchEntry[]) => void) {
       const restaurants = this.restaurants
       const results = queryString ? restaurants.filter(this.createFilter(queryString)) : restaurants
       // call callback return this results
       cb(results)
     },
-    createFilter (queryString) {
-      return (restaurant) => {
+    createFilter (queryString: string) {
+      return (restaurant: PreferenceSearchEntry) => {
         return (restaurant.preference.toLowerCase().indexOf(queryString.toLowerCase()) >= 0) ||
             (restaurant.category.toLowerCase().indexOf(queryString.toLowerCase()) >= 0)
       }
     },
-    loadAll () {
+    loadAll (): PreferenceSearchEntry[] {
       return searchContent
     },
-    handleSelect (item) {
+    handleSelect (item: PreferenceSearchEntry) {
       this.$router.push({
         path: `/preference/${item.category.toLowerCase()}`
       })
     },
-    handleCategoryItemClick (item) {
+    handleCategoryItemClick (item: PreferenceCategory) {
       const { currentCategory } = this
       if (item.name.toLowerCase() !== currentCategory) {
         this.$router.push({
@@ -82,8 +87,8 @@ export default {
         })
       }
     },
-    onIpcCategoryChange (event, category) {
-      const validRoute = category && this.$router.getRoutes().findIndex(route => route.path.endsWith(`/${category}`)) !== -1
+    onIpcCategoryChange (_event: IpcRendererEvent, category: string) {
+      const validRoute = !!category && this.$router.getRoutes().findIndex(route => route.path.endsWith(`/${category}`)) !== -1
       if (validRoute) {
         this.$router.push({
           path: `/preference/${category}`
@@ -99,10 +104,10 @@ export default {
     }
     ipcRenderer.on('settings::change-tab', this.onIpcCategoryChange)
   },
-  unmounted () {
-    ipcRenderer.removeAllListener('settings::change-tab', this.onIpcCategoryChange)
+  beforeDestroy () {
+    ipcRenderer.removeListener('settings::change-tab', this.onIpcCategoryChange)
   }
-}
+})
 </script>
 
 <style>

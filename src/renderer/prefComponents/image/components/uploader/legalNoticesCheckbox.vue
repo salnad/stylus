@@ -11,24 +11,26 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { shell } from 'electron'
+import type { UploaderService } from './services'
 
-export default {
-  data () {
-    return {}
-  },
+export default Vue.extend({
   props: {
-    uploaderService: Object
+    uploaderService: {
+      type: Object as PropType<UploaderService>,
+      required: true
+    }
   },
   methods: {
-    openUrl (link) {
+    openUrl (link: string) {
       if (link) {
         shell.openExternal(link)
       }
     }
   }
-}
+})
 </script>
 
 <style>

@@ -36,28 +36,35 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import {
+  type KeyBinding,
   isCompositionEvent,
   isValidElectronAccelerator,
   getAcceleratorFromKeyboardEvent
 } from '@hfelix/electron-localshortcut'
 
-export default {
+type OnCommitHandler = (accelerator: string | null) => void
+
+export default Vue.extend({
   data () {
-    this.needCommitOnClose = true
-    this.currentKeybinding = null
-    this.defaultPlaceholderText = 'Press a key combination'
     return {
+      needCommitOnClose: true,
+      currentKeybinding: null as KeyBinding | null,
+      defaultPlaceholderText: 'Press a key combination',
       showKeyInputDialog: false,
-      placeholderText: this.defaultPlaceholderText,
+      placeholderText: 'Press a key combination',
       isKeybindingValid: true,
       keybindingInputValue: ''
     }
   },
 
   props: {
-    onCommit: Function,
+    onCommit: {
+      type: Function as PropType<OnCommitHandler>,
+      required: true
+    },
     showWithId: {
       type: String,
       default: null
@@ -65,7 +72,7 @@ export default {
   },
 
   watch: {
-    showWithId: function (value, oldValue) {
+    showWithId (value: string | null, oldValue: string | null) {
       if (value !== oldValue) {
         if (value) {
           this.handleShow()
@@ -81,16 +88,18 @@ export default {
       this.needCommitOnClose = true
       this.showKeyInputDialog = true
       this.$nextTick(() => {
-        this.$refs.intputTextbox.focus()
+        const input = this.$refs.intputTextbox as HTMLInputElement | undefined
+        input?.focus()
       })
     },
     handleDialogClose () {
       this.currentKeybinding = null
       this.isKeybindingValid = true
       this.keybindingInputValue = ''
+      this.placeholderText = this.defaultPlaceholderText
       this.showKeyInputDialog = false
     },
-    handleKeyDown (event) {
+    handleKeyDown (event: KeyboardEvent) {
       event.preventDefault()
       event.stopPropagation()
       if (isCompositionEvent(event)) {
@@ -110,7 +119,7 @@ export default {
       this.isKeybindingValid = keybinding.isValid && isValidElectronAccelerator(keybinding.accelerator)
       this.keybindingInputValue = keybinding.accelerator
     },
-    handleKeyUp (event) {
+    handleKeyUp (event: KeyboardEvent) {
       event.preventDefault()
       event.stopPropagation()
     },
@@ -138,12 +147,12 @@ export default {
       this.onCommit(accelerator)
       this.handleDialogClose()
     },
-    isRawKeyCode (event, keyCode) {
+    isRawKeyCode (event: KeyboardEvent, keyCode: string) {
       const { code, ctrlKey, altKey, shiftKey, metaKey } = event
       return event && code === keyCode && !ctrlKey && !altKey && !shiftKey && !metaKey
     }
   }
-}
+})
 </script>
 
 <style scoped>
