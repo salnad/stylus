@@ -72,11 +72,11 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { shell } from 'electron'
 import path from 'path'
 import log from 'electron-log'
-import { mapState } from 'vuex'
 // import ViewImage from 'view-image'
 import { isChildOfDirectory } from 'common/filesystem/paths'
 import Muya from 'muya/lib'
@@ -93,7 +93,7 @@ import LinkTools from 'muya/lib/ui/linkTools'
 import FootnoteTool from 'muya/lib/ui/footnoteTool'
 import TableBarTools from 'muya/lib/ui/tableTools'
 import FrontMenu from 'muya/lib/ui/frontMenu'
-import Search from '../search'
+import Search from '../search/index.vue'
 import bus from '@/bus'
 import { DEFAULT_EDITOR_FONT_FAMILY } from '@/config'
 import notice from '@/services/notification'
@@ -105,6 +105,10 @@ import { moveImageToFolder, moveToRelativeFolder, uploadImage } from '@/util/fil
 import { guessClipboardFilePath } from '@/util/clipboard'
 import { getCssForOptions, getHtmlToc } from '@/util/pdf'
 import { addCommonStyle, setEditorWidth } from '@/util/theme'
+import type { TextDirection } from 'common/types/preferences'
+import type { DocumentState, HistoryState, SearchMatches, WordCount } from '@/store/help'
+import type { PreferencesState } from '@/store/preferences'
+import type { TreeFolderEntry } from '@/store/treeCtrl'
 
 import 'muya/themes/default.css'
 import '@/assets/themes/codemirror/one-dark.css'
@@ -113,264 +117,555 @@ import CloseIcon from '@/assets/icons/close.svg'
 
 const STANDAR_Y = 320
 
-export default {
+type ImageInput = Parameters<typeof moveImageToFolder>[1]
+type UploadPreferences = Parameters<typeof uploadImage>[2]
+type PdfHelperOptions = Parameters<typeof getCssForOptions>[0]
+type CopyPasteAction = 'copyAsMarkdown' | 'copyAsHtml' | 'pasteAsPlainText'
+type FindAction = 'prev' | 'next'
+type ParagraphAction = 'duplicate' | 'createParagraph' | 'deleteParagraph'
+
+interface EditorStoreState {
+  preferences: PreferencesState
+  editor: {
+    currentFile: DocumentState
+  }
+  project: {
+    projectTree: TreeFolderEntry | null
+  }
+}
+
+interface EditorCursorPayload extends Record<string, unknown> {
+  anchor?: unknown
+  focus?: unknown
+}
+
+interface TableChecker {
+  rows: number
+  columns: number
+}
+
+interface SearchOptions {
+  isCaseSensitive?: boolean
+  isWholeWord?: boolean
+  isRegexp?: boolean
+  selectHighlight?: boolean
+}
+
+interface ReplaceOptions extends SearchOptions {
+  isSingle?: boolean
+}
+
+interface LinkInfo {
+  href: string
+}
+
+interface DestroyableLike {
+  destroy(): void
+}
+
+interface ReplaceMisspellingPayload {
+  word: string
+  replacement: string
+}
+
+interface ImageAutoPathEntry {
+  file: string
+  type: 'directory' | 'image'
+}
+
+interface ImageAutoPathOption extends ImageAutoPathEntry {
+  iconClass: 'icon-folder' | 'icon-image'
+  text: string
+}
+
+interface EditorSelectionSnapshot {
+  cursorCoords: {
+    y: number
+  }
+}
+
+interface EditorSelectionChangePayload extends Record<string, unknown> {
+  cursorCoords: {
+    y: number
+  }
+}
+
+interface TocItem {
+  lvl: number
+  content: string
+  [key: string]: unknown
+}
+
+interface MuyaChangePayload {
+  markdown: string
+  wordCount: WordCount
+  cursor: EditorCursorPayload | null
+  history: HistoryState
+  toc: TocItem[]
+}
+
+interface FormatClickPayload {
+  event: MouseEvent
+  formatType: string
+  data: unknown
+}
+
+type ExportOptions = PdfHelperOptions & {
+  type: string
+  header?: string
+  footer?: string
+  headerFooterStyled?: boolean
+  htmlTitle?: string
+  pageSize?: unknown
+  pageSizeWidth?: unknown
+  pageSizeHeight?: unknown
+  isLandscape?: boolean
+}
+
+interface FileLoadedPayload {
+  markdown: string
+  cursor?: EditorCursorPayload | null
+}
+
+interface FileChangedPayload {
+  markdown?: string
+  cursor?: EditorCursorPayload | null
+  renderCursor?: boolean
+  history?: HistoryState
+}
+
+interface ThemeOptions {
+  mermaidTheme: 'dark' | 'default'
+  vegaTheme: 'dark' | 'latimes'
+}
+
+interface MuyaOptions extends ThemeOptions {
+  focusMode: boolean
+  markdown: string
+  preferLooseListItem: boolean
+  autoPairBracket: boolean
+  autoPairMarkdownSyntax: boolean
+  trimUnnecessaryCodeBlockEmptyLines: boolean
+  autoPairQuote: boolean
+  bulletListMarker: string
+  orderListDelimiter: string
+  tabSize: number
+  fontSize: number
+  lineHeight: number
+  codeBlockLineNumbers: boolean
+  listIndentation: PreferencesState['listIndentation']
+  frontmatterType: string
+  superSubScript: boolean
+  footnote: boolean
+  disableHtml: boolean
+  isGitlabCompatibilityEnabled: boolean
+  hideQuickInsertHint: boolean
+  hideLinkPopup: boolean
+  autoCheck: boolean
+  sequenceTheme: string
+  spellcheckEnabled: boolean
+  imageAction: (image: ImageInput, id?: string, alt?: string) => Promise<string>
+    imagePathPicker: () => string | Promise<string>
+  clipboardFilePath: typeof guessClipboardFilePath
+  imagePathAutoComplete: (src: string) => Promise<ImageAutoPathOption[]>
+}
+
+interface MuyaLike {
+  container: HTMLElement
+  contentState: {
+    selectedTableCells: unknown
+  }
+  setFocusMode(value: boolean): void
+  setFont(options: { fontSize?: number, lineHeight?: number }): void
+  setOptions(options: Record<string, unknown>, needRender?: boolean): void
+  setTabSize(value: number): void
+  setListIndentation(value: PreferencesState['listIndentation']): void
+  hideAllFloatTools(): void
+  invalidateImageCache(): void
+  _replaceCurrentWordInlineUnsafe(word: string, replacement: string): boolean
+  undo(): void
+  redo(): void
+  hasFocus(): boolean
+  selectAll(): void
+  copyAsMarkdown(): void
+  copyAsHtml(): void
+  pasteAsPlainText(): void
+  insertImage(imageInfo: { src: string }): void
+  search(value: string, opt?: SearchOptions): SearchMatches
+  replace(value: string, opt?: ReplaceOptions): SearchMatches
+  getSelection(): EditorSelectionSnapshot
+  find(action: FindAction): SearchMatches
+  getTOC(): TocItem[]
+  exportStyledHTML(options: Record<string, unknown>): Promise<string>
+  updateParagraph(type: string): void
+  duplicate(): void
+  insertParagraph(location: string, text?: string, outMost?: boolean): void
+  deleteParagraph(): void
+  format(type: string): void
+  createTable(tableChecker: TableChecker): void
+  clearHistory(): void
+  setMarkdown(markdown: string, cursor?: EditorCursorPayload | null, isRenderCursor?: boolean): void
+  setHistory(history: HistoryState): void
+  setCursor(cursor: EditorCursorPayload): void
+  blur(isRemoveAllRange?: boolean, unSelect?: boolean): void
+  focus(): void
+  destroy(): void
+  on(event: 'change', listener: (changes: MuyaChangePayload) => void): void
+  on(event: 'format-click', listener: (payload: FormatClickPayload) => void): void
+  on(event: 'selectionChange', listener: (changes: EditorSelectionChangePayload) => void): void
+  on(event: 'selectionFormats', listener: (formats: Array<{ type: string }>) => void): void
+}
+
+const getStoreState = (vm: Vue): EditorStoreState => vm.$store.state as EditorStoreState
+
+const getThemeOptions = (theme: string): ThemeOptions => {
+  return /dark/i.test(theme)
+    ? { mermaidTheme: 'dark', vegaTheme: 'dark' }
+    : { mermaidTheme: 'default', vegaTheme: 'latimes' }
+}
+
+const getErrorMessage = (error: unknown): string => {
+  return error instanceof Error ? error.message : String(error)
+}
+
+const isTextInputElement = (element: Element | null): element is HTMLInputElement | HTMLTextAreaElement => {
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+}
+
+export default Vue.extend({
   components: {
     Search
   },
 
   props: {
-    markdown: String,
-    cursor: Object,
-    textDirection: {
+    markdown: {
       type: String,
+      default: ''
+    },
+    cursor: {
+      type: Object as PropType<EditorCursorPayload | null>,
+      default: null
+    },
+    textDirection: {
+      type: String as PropType<TextDirection>,
       required: true
     },
-    platform: String
+    platform: {
+      type: String,
+      default: ''
+    }
   },
 
   computed: {
-    ...mapState({
-      preferences: state => state.preferences,
-      preferLooseListItem: state => state.preferences.preferLooseListItem,
-      autoPairBracket: state => state.preferences.autoPairBracket,
-      autoPairMarkdownSyntax: state => state.preferences.autoPairMarkdownSyntax,
-      autoPairQuote: state => state.preferences.autoPairQuote,
-      bulletListMarker: state => state.preferences.bulletListMarker,
-      orderListDelimiter: state => state.preferences.orderListDelimiter,
-      tabSize: state => state.preferences.tabSize,
-      listIndentation: state => state.preferences.listIndentation,
-      frontmatterType: state => state.preferences.frontmatterType,
-      superSubScript: state => state.preferences.superSubScript,
-      footnote: state => state.preferences.footnote,
-      isHtmlEnabled: state => state.preferences.isHtmlEnabled,
-      isGitlabCompatibilityEnabled: state => state.preferences.isGitlabCompatibilityEnabled,
-      lineHeight: state => state.preferences.lineHeight,
-      fontSize: state => state.preferences.fontSize,
-      codeFontSize: state => state.preferences.codeFontSize,
-      codeFontFamily: state => state.preferences.codeFontFamily,
-      codeBlockLineNumbers: state => state.preferences.codeBlockLineNumbers,
-      trimUnnecessaryCodeBlockEmptyLines: state => state.preferences.trimUnnecessaryCodeBlockEmptyLines,
-      editorFontFamily: state => state.preferences.editorFontFamily,
-      hideQuickInsertHint: state => state.preferences.hideQuickInsertHint,
-      hideLinkPopup: state => state.preferences.hideLinkPopup,
-      autoCheck: state => state.preferences.autoCheck,
-      editorLineWidth: state => state.preferences.editorLineWidth,
-      imageInsertAction: state => state.preferences.imageInsertAction,
-      imagePreferRelativeDirectory: state => state.preferences.imagePreferRelativeDirectory,
-      imageRelativeDirectoryName: state => state.preferences.imageRelativeDirectoryName,
-      imageFolderPath: state => state.preferences.imageFolderPath,
-      theme: state => state.preferences.theme,
-      sequenceTheme: state => state.preferences.sequenceTheme,
-      hideScrollbar: state => state.preferences.hideScrollbar,
-      spellcheckerEnabled: state => state.preferences.spellcheckerEnabled,
-      spellcheckerNoUnderline: state => state.preferences.spellcheckerNoUnderline,
-      spellcheckerLanguage: state => state.preferences.spellcheckerLanguage,
-
-      currentFile: state => state.editor.currentFile,
-      projectTree: state => state.project.projectTree,
-
-      // edit modes
-      typewriter: state => state.preferences.typewriter,
-      focus: state => state.preferences.focus,
-      sourceCode: state => state.preferences.sourceCode
-    })
+    preferences (): PreferencesState {
+      return getStoreState(this).preferences
+    },
+    preferLooseListItem (): boolean {
+      return this.preferences.preferLooseListItem
+    },
+    autoPairBracket (): boolean {
+      return this.preferences.autoPairBracket
+    },
+    autoPairMarkdownSyntax (): boolean {
+      return this.preferences.autoPairMarkdownSyntax
+    },
+    autoPairQuote (): boolean {
+      return this.preferences.autoPairQuote
+    },
+    bulletListMarker (): string {
+      return this.preferences.bulletListMarker
+    },
+    orderListDelimiter (): string {
+      return this.preferences.orderListDelimiter
+    },
+    tabSize (): number {
+      return this.preferences.tabSize
+    },
+    listIndentation (): PreferencesState['listIndentation'] {
+      return this.preferences.listIndentation
+    },
+    frontmatterType (): string {
+      return this.preferences.frontmatterType
+    },
+    superSubScript (): boolean {
+      return this.preferences.superSubScript
+    },
+    footnote (): boolean {
+      return this.preferences.footnote
+    },
+    isHtmlEnabled (): boolean {
+      return this.preferences.isHtmlEnabled
+    },
+    isGitlabCompatibilityEnabled (): boolean {
+      return this.preferences.isGitlabCompatibilityEnabled
+    },
+    lineHeight (): number {
+      return this.preferences.lineHeight
+    },
+    fontSize (): number {
+      return this.preferences.fontSize
+    },
+    codeFontSize (): number {
+      return this.preferences.codeFontSize
+    },
+    codeFontFamily (): string {
+      return this.preferences.codeFontFamily
+    },
+    codeBlockLineNumbers (): boolean {
+      return this.preferences.codeBlockLineNumbers
+    },
+    trimUnnecessaryCodeBlockEmptyLines (): boolean {
+      return this.preferences.trimUnnecessaryCodeBlockEmptyLines
+    },
+    editorFontFamily (): string {
+      return this.preferences.editorFontFamily
+    },
+    hideQuickInsertHint (): boolean {
+      return this.preferences.hideQuickInsertHint
+    },
+    hideLinkPopup (): boolean {
+      return this.preferences.hideLinkPopup
+    },
+    autoCheck (): boolean {
+      return this.preferences.autoCheck
+    },
+    editorLineWidth (): string {
+      return this.preferences.editorLineWidth
+    },
+    imageInsertAction (): string {
+      return this.preferences.imageInsertAction
+    },
+    imagePreferRelativeDirectory (): boolean {
+      return this.preferences.imagePreferRelativeDirectory
+    },
+    imageRelativeDirectoryName (): string {
+      return this.preferences.imageRelativeDirectoryName
+    },
+    imageFolderPath (): string {
+      return this.preferences.imageFolderPath
+    },
+    theme (): string {
+      return this.preferences.theme
+    },
+    sequenceTheme (): string {
+      return this.preferences.sequenceTheme
+    },
+    hideScrollbar (): boolean {
+      return this.preferences.hideScrollbar
+    },
+    spellcheckerEnabled (): boolean {
+      return this.preferences.spellcheckerEnabled
+    },
+    spellcheckerNoUnderline (): boolean {
+      return this.preferences.spellcheckerNoUnderline
+    },
+    spellcheckerLanguage (): string {
+      return this.preferences.spellcheckerLanguage
+    },
+    currentFile (): DocumentState {
+      return getStoreState(this).editor.currentFile as DocumentState
+    },
+    projectTree (): TreeFolderEntry | null {
+      return getStoreState(this).project.projectTree
+    },
+    typewriter (): boolean {
+      return this.preferences.typewriter
+    },
+    focus (): boolean {
+      return this.preferences.focus
+    },
+    sourceCode (): boolean {
+      return this.preferences.sourceCode
+    }
   },
 
   data () {
-    this.defaultFontFamily = DEFAULT_EDITOR_FONT_FAMILY
-    this.CloseIcon = CloseIcon
-
     return {
-      selectionChange: null,
-      editor: null,
+      defaultFontFamily: DEFAULT_EDITOR_FONT_FAMILY,
+      CloseIcon,
+      selectionChange: null as EditorSelectionChangePayload | null,
+      editor: null as MuyaLike | null,
       pathname: '',
       isShowClose: false,
       dialogTableVisible: false,
       imageViewerVisible: false,
+      imageViewer: null as DestroyableLike | null,
+      printer: null as Printer | null,
+      spellchecker: null as SpellChecker | null,
+      switchLanguageCommand: null as SpellcheckerLanguageCommand | null,
       tableChecker: {
         rows: 4,
         columns: 3
-      }
+      } as TableChecker
     }
   },
 
   watch: {
-    typewriter: function (value) {
+    typewriter (value: boolean) {
       if (value) {
         this.scrollToCursor()
       }
     },
 
-    focus: function (value) {
-      this.editor.setFocusMode(value)
+    focus (value: boolean) {
+      this.editor?.setFocusMode(value)
     },
 
-    fontSize: function (value, oldValue) {
+    fontSize (value: number, oldValue: number) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setFont({ fontSize: value })
       }
     },
 
-    lineHeight: function (value, oldValue) {
+    lineHeight (value: number, oldValue: number) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setFont({ lineHeight: value })
       }
     },
 
-    preferLooseListItem: function (value, oldValue) {
+    preferLooseListItem (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
-        editor.setOptions({
-          preferLooseListItem: value
-        })
+        editor.setOptions({ preferLooseListItem: value })
       }
     },
 
-    tabSize: function (value, oldValue) {
+    tabSize (value: number, oldValue: number) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setTabSize(value)
       }
     },
 
-    theme: function (value, oldValue) {
-      if (value !== oldValue && this.editor) {
+    theme (value: string, oldValue: string) {
+      const { editor } = this
+      if (value !== oldValue && editor) {
         // Agreement：Any black series theme needs to contain dark `word`.
-        if (/dark/i.test(value)) {
-          this.editor.setOptions({
-            mermaidTheme: 'dark',
-            vegaTheme: 'dark'
-          }, true)
-        } else {
-          this.editor.setOptions({
-            mermaidTheme: 'default',
-            vegaTheme: 'latimes'
-          }, true)
-        }
+        editor.setOptions({ ...getThemeOptions(value) }, true)
       }
     },
 
-    sequenceTheme: function (value, oldValue) {
+    sequenceTheme (value: string, oldValue: string) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ sequenceTheme: value }, true)
       }
     },
 
-    listIndentation: function (value, oldValue) {
+    listIndentation (value: PreferencesState['listIndentation'], oldValue: PreferencesState['listIndentation']) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setListIndentation(value)
       }
     },
 
-    frontmatterType: function (value, oldValue) {
+    frontmatterType (value: string, oldValue: string) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ frontmatterType: value })
       }
     },
 
-    superSubScript: function (value, oldValue) {
+    superSubScript (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ superSubScript: value }, true)
       }
     },
 
-    footnote: function (value, oldValue) {
+    footnote (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ footnote: value }, true)
       }
     },
 
-    isHtmlEnabled: function (value, oldValue) {
+    isHtmlEnabled (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ disableHtml: !value }, true)
       }
     },
 
-    isGitlabCompatibilityEnabled: function (value, oldValue) {
+    isGitlabCompatibilityEnabled (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ isGitlabCompatibilityEnabled: value }, true)
       }
     },
 
-    hideQuickInsertHint: function (value, oldValue) {
+    hideQuickInsertHint (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ hideQuickInsertHint: value })
       }
     },
 
-    editorLineWidth: function (value, oldValue) {
+    editorLineWidth (value: string, oldValue: string) {
       if (value !== oldValue) {
         setEditorWidth(value)
       }
     },
 
-    autoPairBracket: function (value, oldValue) {
+    autoPairBracket (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ autoPairBracket: value })
       }
     },
 
-    autoPairMarkdownSyntax: function (value, oldValue) {
+    autoPairMarkdownSyntax (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ autoPairMarkdownSyntax: value })
       }
     },
 
-    autoPairQuote: function (value, oldValue) {
+    autoPairQuote (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ autoPairQuote: value })
       }
     },
 
-    trimUnnecessaryCodeBlockEmptyLines: function (value, oldValue) {
+    trimUnnecessaryCodeBlockEmptyLines (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ trimUnnecessaryCodeBlockEmptyLines: value })
       }
     },
 
-    bulletListMarker: function (value, oldValue) {
+    bulletListMarker (value: string, oldValue: string) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ bulletListMarker: value })
       }
     },
 
-    orderListDelimiter: function (value, oldValue) {
+    orderListDelimiter (value: string, oldValue: string) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ orderListDelimiter: value })
       }
     },
 
-    hideLinkPopup: function (value, oldValue) {
+    hideLinkPopup (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ hideLinkPopup: value })
       }
     },
 
-    autoCheck: function (value, oldValue) {
+    autoCheck (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ autoCheck: value })
       }
     },
 
-    codeFontSize: function (value, oldValue) {
+    codeFontSize (value: number, oldValue: number) {
       if (value !== oldValue) {
         addCommonStyle({
           codeFontSize: value,
@@ -380,14 +675,14 @@ export default {
       }
     },
 
-    codeBlockLineNumbers: function (value, oldValue) {
+    codeBlockLineNumbers (value: boolean, oldValue: boolean) {
       const { editor } = this
       if (value !== oldValue && editor) {
         editor.setOptions({ codeBlockLineNumbers: value }, true)
       }
     },
 
-    codeFontFamily: function (value, oldValue) {
+    codeFontFamily (value: string, oldValue: string) {
       if (value !== oldValue) {
         addCommonStyle({
           codeFontSize: this.codeFontSize,
@@ -397,7 +692,7 @@ export default {
       }
     },
 
-    hideScrollbar: function (value, oldValue) {
+    hideScrollbar (value: boolean, oldValue: boolean) {
       if (value !== oldValue) {
         addCommonStyle({
           codeFontSize: this.codeFontSize,
@@ -407,9 +702,12 @@ export default {
       }
     },
 
-    spellcheckerEnabled: function (value, oldValue) {
+    spellcheckerEnabled (value: boolean, oldValue: boolean) {
       if (value !== oldValue) {
         const { editor, spellchecker, spellcheckerLanguage } = this
+        if (!editor || !spellchecker) {
+          return
+        }
 
         // Set Muya's spellcheck container attribute.
         editor.setOptions({ spellcheckEnabled: value })
@@ -423,30 +721,30 @@ export default {
       }
     },
 
-    spellcheckerNoUnderline: function (value, oldValue) {
+    spellcheckerNoUnderline (value: boolean, oldValue: boolean) {
       if (value !== oldValue) {
         // Set Muya's spellcheck container attribute.
-        this.editor.setOptions({ spellcheckEnabled: !value })
+        this.editor?.setOptions({ spellcheckEnabled: !value })
       }
     },
 
-    spellcheckerLanguage: function (value, oldValue) {
-      if (value !== oldValue) {
+    spellcheckerLanguage (value: string, oldValue: string) {
+      if (value !== oldValue && this.spellchecker) {
         this.spellchecker.lang = value
       }
     },
 
-    currentFile: function (value, oldValue) {
+    currentFile (value: DocumentState, oldValue: DocumentState) {
       if (value && value !== oldValue) {
         this.scrollToCursor(0)
         // Hide float tools if needed.
-        this.editor && this.editor.hideAllFloatTools()
+        this.editor?.hideAllFloatTools()
       }
     },
 
-    sourceCode: function (value, oldValue) {
+    sourceCode (value: boolean, oldValue: boolean) {
       if (value && value !== oldValue) {
-        this.editor && this.editor.hideAllFloatTools()
+        this.editor?.hideAllFloatTools()
       }
     }
   },
@@ -454,7 +752,11 @@ export default {
   created () {
     this.$nextTick(() => {
       this.printer = new Printer()
-      const ele = this.$refs.editor
+      const editorElement = this.$refs.editor as HTMLElement | undefined
+      if (!editorElement) {
+        return
+      }
+
       const {
         focus: focusMode,
         markdown,
@@ -506,7 +808,7 @@ export default {
       Muya.use(FootnoteTool)
       Muya.use(TableBarTools)
 
-      const options = {
+      const options: MuyaOptions = {
         focusMode,
         markdown,
         preferLooseListItem,
@@ -534,22 +836,13 @@ export default {
         imageAction: this.imageAction.bind(this),
         imagePathPicker: this.imagePathPicker.bind(this),
         clipboardFilePath: guessClipboardFilePath,
-        imagePathAutoComplete: this.imagePathAutoComplete.bind(this)
+        imagePathAutoComplete: this.imagePathAutoComplete.bind(this),
+        ...getThemeOptions(theme)
       }
 
-      if (/dark/i.test(theme)) {
-        Object.assign(options, {
-          mermaidTheme: 'dark',
-          vegaTheme: 'dark'
-        })
-      } else {
-        Object.assign(options, {
-          mermaidTheme: 'default',
-          vegaTheme: 'latimes'
-        })
-      }
-
-      const { container } = this.editor = new Muya(ele, options)
+      const editor = new Muya(editorElement, options) as MuyaLike
+      this.editor = editor
+      const { container } = editor
 
       // Create spell check wrapper and enable spell checking if preferred.
       this.spellchecker = new SpellChecker(spellcheckerEnabled, spellcheckerLanguage)
@@ -593,19 +886,17 @@ export default {
       bus.$on('open-command-spellchecker-switch-language', this.openSpellcheckerLanguageCommand)
       bus.$on('replace-misspelling', this.replaceMisspelling)
 
-      this.editor.on('change', changes => {
+      editor.on('change', changes => {
         // WORKAROUND: "id: 'muya'"
         this.$store.dispatch('LISTEN_FOR_CONTENT_CHANGE', Object.assign(changes, { id: 'muya' }))
       })
 
-      this.editor.on('format-click', ({ event, formatType, data }) => {
+      editor.on('format-click', ({ event, formatType, data }) => {
         const ctrlOrMeta = (isOsx && event.metaKey) || (!isOsx && event.ctrlKey)
         if (formatType === 'link' && ctrlOrMeta) {
           this.$store.dispatch('FORMAT_LINK_CLICK', { data, dirname: window.DIRNAME })
         } else if (formatType === 'image' && ctrlOrMeta) {
-          if (this.imageViewer) {
-            this.imageViewer.destroy()
-          }
+          this.imageViewer?.destroy()
 
           // Disabled due to #2120.
           // this.imageViewer = new ViewImage(this.$refs.imageViewer, {
@@ -618,7 +909,7 @@ export default {
       })
 
       // Disabled due to #2120.
-      // this.editor.on('preview-image', ({ data }) => {
+      // editor.on('preview-image', ({ data }) => {
       //   if (this.imageViewer) {
       //     this.imageViewer.destroy()
       //   }
@@ -631,7 +922,7 @@ export default {
       //   this.setImageViewerVisible(true)
       // })
 
-      this.editor.on('selectionChange', changes => {
+      editor.on('selectionChange', changes => {
         const { y } = changes.cursorCoords
         if (this.typewriter) {
           const startPosition = container.scrollTop
@@ -654,7 +945,7 @@ export default {
         this.$store.dispatch('SELECTION_CHANGE', changes)
       })
 
-      this.editor.on('selectionFormats', formats => {
+      editor.on('selectionFormats', formats => {
         this.$store.dispatch('SELECTION_FORMATS', formats)
       })
 
@@ -664,24 +955,28 @@ export default {
     })
   },
   methods: {
-    photoCreatorClick: (url) => {
+    photoCreatorClick (url: string) {
       shell.openExternal(url)
     },
 
-    jumpClick (linkInfo) {
+    jumpClick (linkInfo: LinkInfo) {
       const { href } = linkInfo
       this.$store.dispatch('FORMAT_LINK_CLICK', { data: { href }, dirname: window.DIRNAME })
     },
 
-    async imagePathAutoComplete (src) {
-      const files = await this.$store.dispatch('ASK_FOR_IMAGE_AUTO_PATH', src)
-      return files.map(f => {
-        const iconClass = f.type === 'directory' ? 'icon-folder' : 'icon-image'
-        return Object.assign(f, { iconClass, text: f.file + (f.type === 'directory' ? '/' : '') })
+    async imagePathAutoComplete (src: string): Promise<ImageAutoPathOption[]> {
+      const files = await (this.$store.dispatch('ASK_FOR_IMAGE_AUTO_PATH', src) as Promise<ImageAutoPathEntry[]> | ImageAutoPathEntry[])
+      return files.map((file): ImageAutoPathOption => {
+        const iconClass = file.type === 'directory' ? 'icon-folder' : 'icon-image'
+        return {
+          ...file,
+          iconClass,
+          text: file.file + (file.type === 'directory' ? '/' : '')
+        }
       })
     },
 
-    async imageAction (image, id, alt = '') {
+    async imageAction (image: ImageInput, id?: string, alt = ''): Promise<string> {
       // TODO(Refactor): Refactor this method.
       const {
         imageInsertAction,
@@ -712,7 +1007,7 @@ export default {
         }
       }
 
-      const getResolvedImagePath = imagePath => {
+      const getResolvedImagePath = (imagePath: string): string => {
         const replacement = isTabSavedOnDisk
           // Filename w/o extension
           ? filename.replace(/\.[^/.]+$/, '')
@@ -722,16 +1017,18 @@ export default {
 
       const resolvedImageFolderPath = getResolvedImagePath(imageFolderPath)
       const resolvedImageRelativeDirectoryName = getResolvedImagePath(imageRelativeDirectoryName)
+      const relativeFolderBasePath = relativeBasePath || path.dirname(pathname)
       let destImagePath = ''
+
       switch (imageInsertAction) {
         case 'upload': {
           try {
-            destImagePath = await uploadImage(pathname, image, preferences)
-          } catch (err) {
+            destImagePath = await uploadImage(pathname, image, preferences as UploadPreferences)
+          } catch (error) {
             notice.notify({
               title: 'Upload Image',
               type: 'warning',
-              message: err
+              message: getErrorMessage(error)
             })
             destImagePath = await moveImageToFolder(pathname, image, resolvedImageFolderPath)
           }
@@ -740,7 +1037,7 @@ export default {
         case 'folder': {
           destImagePath = await moveImageToFolder(pathname, image, resolvedImageFolderPath)
           if (isTabSavedOnDisk && imagePreferRelativeDirectory) {
-            destImagePath = await moveToRelativeFolder(relativeBasePath, resolvedImageRelativeDirectoryName, pathname, destImagePath)
+            destImagePath = await moveToRelativeFolder(relativeFolderBasePath, resolvedImageRelativeDirectoryName, pathname, destImagePath)
           }
           break
         }
@@ -754,7 +1051,7 @@ export default {
 
             // Respect user preferences if tab exists on disk.
             if (isTabSavedOnDisk && imagePreferRelativeDirectory) {
-              destImagePath = await moveToRelativeFolder(relativeBasePath, resolvedImageRelativeDirectoryName, pathname, destImagePath)
+              destImagePath = await moveToRelativeFolder(relativeFolderBasePath, resolvedImageRelativeDirectoryName, pathname, destImagePath)
             }
           }
           break
@@ -771,22 +1068,26 @@ export default {
       return destImagePath
     },
 
-    imagePathPicker () {
-      return this.$store.dispatch('ASK_FOR_IMAGE_PATH')
+    imagePathPicker (): string {
+      return this.$store.dispatch('ASK_FOR_IMAGE_PATH') as unknown as string
     },
 
-    keyup (event) {
+    keyup (event: KeyboardEvent) {
       if (event.key === 'Escape') {
         this.setImageViewerVisible(false)
       }
     },
 
-    setImageViewerVisible (status) {
+    setImageViewerVisible (status: boolean) {
       this.imageViewerVisible = status
     },
 
-    switchSpellcheckLanguage (languageCode) {
+    switchSpellcheckLanguage (languageCode: string) {
       const { spellchecker } = this
+      if (!spellchecker) {
+        return
+      }
+
       const { isEnabled } = spellchecker
 
       // This method is also called from bus, so validate state before continuing.
@@ -812,39 +1113,31 @@ export default {
           notice.notify({
             title: 'Spelling',
             type: 'error',
-            message: `Error while switching to "${languageCode}": ${error.message}`
+            message: `Error while switching to "${languageCode}": ${getErrorMessage(error)}`
           })
         })
     },
 
     handleInvalidateImageCache () {
-      if (this.editor) {
-        this.editor.invalidateImageCache()
-      }
+      this.editor?.invalidateImageCache()
     },
 
     openSpellcheckerLanguageCommand () {
-      if (!isOsx) {
+      if (!isOsx && this.switchLanguageCommand) {
         bus.$emit('show-command-palette', this.switchLanguageCommand)
       }
     },
 
-    replaceMisspelling ({ word, replacement }) {
-      if (this.editor) {
-        this.editor._replaceCurrentWordInlineUnsafe(word, replacement)
-      }
+    replaceMisspelling ({ word, replacement }: ReplaceMisspellingPayload) {
+      this.editor?._replaceCurrentWordInlineUnsafe(word, replacement)
     },
 
     handleUndo () {
-      if (this.editor) {
-        this.editor.undo()
-      }
+      this.editor?.undo()
     },
 
     handleRedo () {
-      if (this.editor) {
-        this.editor.redo()
-      }
+      this.editor?.redo()
     },
 
     handleSelectAll () {
@@ -852,65 +1145,86 @@ export default {
         return
       }
 
-      if (this.editor && (this.editor.hasFocus() || this.editor.contentState.selectedTableCells)) {
-        this.editor.selectAll()
+      const { editor } = this
+      if (editor && (editor.hasFocus() || editor.contentState.selectedTableCells)) {
+        editor.selectAll()
       } else {
         const activeElement = document.activeElement
-        const nodeName = activeElement.nodeName
-        if (nodeName === 'INPUT' || nodeName === 'TEXTAREA') {
+        if (isTextInputElement(activeElement)) {
           activeElement.select()
         }
       }
     },
 
     // Custom copyAsMarkdown copyAsHtml pasteAsPlainText
-    handleCopyPaste (type) {
-      if (this.editor) {
-        this.editor[type]()
+    handleCopyPaste (type: CopyPasteAction) {
+      const { editor } = this
+      if (editor) {
+        editor[type]()
       }
     },
 
-    insertImage (src) {
+    insertImage (src: string) {
       if (!this.sourceCode) {
-        this.editor && this.editor.insertImage({ src })
+        this.editor?.insertImage({ src })
       }
     },
 
-    handleSearch (value, opt) {
-      const searchMatches = this.editor.search(value, opt)
+    handleSearch (value: string, opt: SearchOptions) {
+      const { editor } = this
+      if (!editor) {
+        return
+      }
+
+      const searchMatches = editor.search(value, opt)
       this.$store.dispatch('SEARCH', searchMatches)
       this.scrollToHighlight()
     },
 
-    handReplace (value, opt) {
-      const searchMatches = this.editor.replace(value, opt)
+    handReplace (value: string, opt: ReplaceOptions) {
+      const { editor } = this
+      if (!editor) {
+        return
+      }
+
+      const searchMatches = editor.replace(value, opt)
       this.$store.dispatch('SEARCH', searchMatches)
     },
 
-    handleUploadedImage (url, deletionUrl) {
+    handleUploadedImage (url: string, deletionUrl: string) {
       this.insertImage(url)
       this.$store.dispatch('SHOW_IMAGE_DELETION_URL', deletionUrl)
     },
 
     scrollToCursor (duration = 300) {
       this.$nextTick(() => {
-        const { container } = this.editor
-        const { y } = this.editor.getSelection().cursorCoords
+        const { editor } = this
+        if (!editor) {
+          return
+        }
+
+        const { container } = editor
+        const { y } = editor.getSelection().cursorCoords
         animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, duration)
       })
     },
 
     scrollToHighlight () {
-      return this.scrollToElement('.ag-highlight')
+      this.scrollToElement('.ag-highlight')
     },
 
-    scrollToHeader (slug) {
-      return this.scrollToElement(`#${slug}`)
+    scrollToHeader (slug: string) {
+      this.scrollToElement(`#${slug}`)
     },
 
-    scrollToElement (selector) {
+    scrollToElement (selector: string) {
       // Scroll to search highlight word
-      const { container } = this.editor
+      const { editor } = this
+      if (!editor) {
+        return
+      }
+
+      const { container } = editor
       const anchor = document.querySelector(selector)
       if (anchor) {
         const { y } = anchor.getBoundingClientRect()
@@ -919,13 +1233,23 @@ export default {
       }
     },
 
-    handleFindAction (action) {
-      const searchMatches = this.editor.find(action)
+    handleFindAction (action: FindAction) {
+      const { editor } = this
+      if (!editor) {
+        return
+      }
+
+      const searchMatches = editor.find(action)
       this.$store.dispatch('SEARCH', searchMatches)
       this.scrollToHighlight()
     },
 
-    async handleExport (options) {
+    async handleExport (options: ExportOptions): Promise<void> {
+      const { editor, printer } = this
+      if (!editor || !printer) {
+        return
+      }
+
       const {
         type,
         header,
@@ -939,24 +1263,24 @@ export default {
       }
 
       const extraCss = getCssForOptions(options)
-      const htmlToc = getHtmlToc(this.editor.getTOC(), options)
+      const htmlToc = getHtmlToc(editor.getTOC(), options)
 
       switch (type) {
         case 'styledHtml': {
           try {
-            const content = await this.editor.exportStyledHTML({
+            const content = await editor.exportStyledHTML({
               title: htmlTitle || '',
               printOptimization: false,
               extraCss,
               toc: htmlToc
             })
             this.$store.dispatch('EXPORT', { type, content })
-          } catch (err) {
-            log.error('Failed to export document:', err)
+          } catch (error) {
+            log.error('Failed to export document:', error)
             notice.notify({
               title: `Printing/Exporting ${htmlTitle || 'html'} failed`,
               type: 'error',
-              message: err.message || 'There is something wrong when exporting.'
+              message: getErrorMessage(error) || 'There is something wrong when exporting.'
             })
           }
           break
@@ -966,10 +1290,13 @@ export default {
           try {
             const { pageSize, pageSizeWidth, pageSizeHeight, isLandscape } = options
             const pageOptions = {
-              pageSize, pageSizeWidth, pageSizeHeight, isLandscape
+              pageSize,
+              pageSizeWidth,
+              pageSizeHeight,
+              isLandscape
             }
 
-            const html = await this.editor.exportStyledHTML({
+            const html = await editor.exportStyledHTML({
               title: '',
               printOptimization: true,
               extraCss,
@@ -978,10 +1305,10 @@ export default {
               footer,
               headerFooterStyled
             })
-            this.printer.renderMarkdown(html, true)
+            printer.renderMarkdown(html, true)
             this.$store.dispatch('EXPORT', { type, pageOptions })
-          } catch (err) {
-            log.error('Failed to export document:', err)
+          } catch (error) {
+            log.error('Failed to export document:', error)
             notice.notify({
               title: 'Printing/Exporting failed',
               type: 'error',
@@ -994,7 +1321,7 @@ export default {
         case 'print': {
           // NOTE: Print doesn't support page size or orientation.
           try {
-            const html = await this.editor.exportStyledHTML({
+            const html = await editor.exportStyledHTML({
               title: '',
               printOptimization: true,
               extraCss,
@@ -1003,10 +1330,10 @@ export default {
               footer,
               headerFooterStyled
             })
-            this.printer.renderMarkdown(html, true)
+            printer.renderMarkdown(html, true)
             this.$store.dispatch('PRINT_RESPONSE')
-          } catch (err) {
-            log.error('Failed to export document:', err)
+          } catch (error) {
+            log.error('Failed to export document:', error)
             notice.notify({
               title: 'Printing/Exporting failed',
               type: 'error',
@@ -1020,15 +1347,18 @@ export default {
     },
 
     handlePrintServiceClearup () {
-      this.printer.clearup()
+      this.printer?.clearup()
     },
 
-    handleEditParagraph (type) {
+    handleEditParagraph (type: string) {
       if (type === 'table') {
         this.tableChecker = { rows: 4, columns: 3 }
         this.dialogTableVisible = true
         this.$nextTick(() => {
-          this.$refs.rowInput.focus()
+          const rowInput = this.$refs.rowInput as { focus?: (() => void) | undefined } | undefined
+          if (rowInput?.focus) {
+            rowInput.focus()
+          }
         })
       } else if (this.editor) {
         this.editor.updateParagraph(type)
@@ -1036,7 +1366,7 @@ export default {
     },
 
     // handle `duplicate`, `delete`, `create paragraph below`
-    handleParagraph (type) {
+    handleParagraph (type: ParagraphAction) {
       const { editor } = this
       if (editor) {
         switch (type) {
@@ -1055,17 +1385,17 @@ export default {
       }
     },
 
-    handleInlineFormat (type) {
-      this.editor && this.editor.format(type)
+    handleInlineFormat (type: string) {
+      this.editor?.format(type)
     },
 
     handleDialogTableConfirm () {
       this.dialogTableVisible = false
-      this.editor && this.editor.createTable(this.tableChecker)
+      this.editor?.createTable(this.tableChecker)
     },
 
     // listen for `open-single-file` event, it will call this method only when open a new file.
-    setMarkdownToEditor ({ id, markdown, cursor }) {
+    setMarkdownToEditor ({ markdown, cursor }: FileLoadedPayload) {
       const { editor } = this
       if (editor) {
         editor.clearHistory()
@@ -1078,7 +1408,7 @@ export default {
     },
 
     // listen for markdown change form source mode or change tabs etc
-    handleFileChange ({ id, markdown, cursor, renderCursor, history }) {
+    handleFileChange ({ markdown, cursor, renderCursor, history }: FileChangedPayload) {
       const { editor } = this
       this.$nextTick(() => {
         if (editor) {
@@ -1097,17 +1427,16 @@ export default {
       })
     },
 
-    handleInsertParagraph (location) {
-      const { editor } = this
-      editor && editor.insertParagraph(location)
+    handleInsertParagraph (location: string) {
+      this.editor?.insertParagraph(location)
     },
 
     blurEditor () {
-      this.editor.blur(false, true)
+      this.editor?.blur(false, true)
     },
 
     focusEditor () {
-      this.editor.focus()
+      this.editor?.focus()
     },
 
     handleScreenShot () {
@@ -1149,10 +1478,10 @@ export default {
 
     document.removeEventListener('keyup', this.keyup)
 
-    this.editor.destroy()
+    this.editor?.destroy()
     this.editor = null
   }
-}
+})
 </script>
 
 <style>
