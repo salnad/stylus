@@ -49,13 +49,24 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { showContextMenu } from '../../contextMenu/sideBar'
 import bus from '../../bus'
 import { createFileOrDirectoryMixins } from '../../mixins'
+import File from './treeFile.vue'
+import type { TreeFolderEntry, TreeFileEntry } from '@/store/treeCtrl'
 
-export default {
+interface ProjectStoreState {
+  project: {
+    renameCache: string | null
+    createCache: { dirname?: string, type?: 'file' | 'directory' }
+    activeItem: Partial<TreeFileEntry>
+    clipboard: { type?: 'copy' | 'cut', src?: string, dest?: string } | null
+  }
+}
+
+export default Vue.extend({
   mixins: [createFileOrDirectoryMixins],
   name: 'folder',
   data () {
@@ -66,7 +77,7 @@ export default {
   },
   props: {
     folder: {
-      type: Object,
+      type: Object as PropType<TreeFolderEntry>,
       required: true
     },
     depth: {
@@ -75,19 +86,26 @@ export default {
     }
   },
   components: {
-    File: () => import('./treeFile.vue')
+    File
   },
   computed: {
-    ...mapState({
-      renameCache: state => state.project.renameCache,
-      createCache: state => state.project.createCache,
-      activeItem: state => state.project.activeItem,
-      clipboard: state => state.project.clipboard
-    })
+    renameCache (): string | null {
+      return (this.$store.state as ProjectStoreState).project.renameCache
+    },
+    createCache (): ProjectStoreState['project']['createCache'] {
+      return (this.$store.state as ProjectStoreState).project.createCache
+    },
+    activeItem (): Partial<TreeFileEntry> {
+      return (this.$store.state as ProjectStoreState).project.activeItem
+    },
+    clipboard (): ProjectStoreState['project']['clipboard'] {
+      return (this.$store.state as ProjectStoreState).project.clipboard
+    }
   },
   created () {
     this.$nextTick(() => {
-      this.$refs.folder.addEventListener('contextmenu', event => {
+      const folderRef = this.$refs.folder as HTMLElement | undefined
+      folderRef?.addEventListener('contextmenu', (event: MouseEvent) => {
         event.preventDefault()
         this.$store.dispatch('CHANGE_ACTIVE_ITEM', this.folder)
         showContextMenu(event, !!this.clipboard)
@@ -103,8 +121,9 @@ export default {
     noop () {},
     focusRenameInput () {
       this.$nextTick(() => {
-        if (this.$refs.renameInput) {
-          this.$refs.renameInput.focus()
+        const renameInput = this.$refs.renameInput as HTMLInputElement | undefined
+        if (renameInput) {
+          renameInput.focus()
           this.newName = this.folder.name
         }
       })
@@ -116,7 +135,7 @@ export default {
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>

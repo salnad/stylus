@@ -14,24 +14,31 @@
     </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { tabsMixins } from '../../mixins'
+import type { DocumentState } from '@/store/help'
 
-export default {
+interface OpenedTabStoreState {
+  editor: {
+    currentFile: DocumentState
+  }
+}
+
+export default Vue.extend({
   mixins: [tabsMixins],
   props: {
     file: {
-      type: Object,
+      type: Object as PropType<DocumentState>,
       required: true
     }
   },
   computed: {
-    ...mapState({
-      currentFile: state => state.editor.currentFile
-    })
+    currentFile (): DocumentState {
+      return (this.$store.state as OpenedTabStoreState).editor.currentFile
+    }
   }
-}
+})
 </script>
 
 <style scoped>

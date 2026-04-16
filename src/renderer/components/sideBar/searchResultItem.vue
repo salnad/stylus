@@ -58,13 +58,31 @@
     </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import path from 'path'
-import { mapState } from 'vuex'
 import { fileMixins } from '../../mixins'
 import { PATH_SEPARATOR } from '../../config'
+import type { DocumentState } from '@/store/help'
 
-export default {
+interface SearchMatch {
+  lineText: string
+  range: [[number, number], [number, number]]
+}
+
+interface SearchResult {
+  filePath: string
+  matches: SearchMatch[]
+}
+
+interface SearchResultItemStoreState {
+  editor: {
+    tabs: DocumentState[]
+    currentFile: DocumentState
+  }
+}
+
+export default Vue.extend({
   mixins: [fileMixins],
   data () {
     return {
@@ -75,17 +93,18 @@ export default {
   },
   props: {
     searchResult: {
-      type: Object,
+      type: Object as () => SearchResult,
       required: true
     }
   },
   computed: {
-    ...mapState({
-      tabs: state => state.editor.tabs,
-      currentFile: state => state.editor.currentFile
-    }),
-
-    getMatches () {
+    tabs (): DocumentState[] {
+      return (this.$store.state as SearchResultItemStoreState).editor.tabs
+    },
+    currentFile (): DocumentState {
+      return (this.$store.state as SearchResultItemStoreState).editor.currentFile
+    },
+    getMatches (): SearchMatch[] {
       if (this.searchResult.matches.length === 0 || this.allMatchesShown) {
         return this.searchResult.matches
       }
@@ -93,21 +112,21 @@ export default {
     },
 
     // Return filename without extension.
-    filename () {
+    filename (): string {
       return path.basename(this.searchResult.filePath, path.extname(this.searchResult.filePath))
     },
 
-    matchCount () {
+    matchCount (): number {
       return this.searchResult.matches.length
     },
 
     // Return the filename extension or null.
-    extension () {
+    extension (): string {
       return path.extname(this.searchResult.filePath)
     },
 
     // Return the parent directory with trailing path separator.
-    dirname () {
+    dirname (): string {
       return path.join(path.dirname(this.searchResult.filePath), PATH_SEPARATOR)
     }
   },
@@ -116,7 +135,7 @@ export default {
       this.showSearchMatches = !this.showSearchMatches
     },
 
-    handleShowMoreMatches (event) {
+    handleShowMoreMatches (event: MouseEvent) {
       this.shownMatches += 15
       if (event.ctrlKey || event.metaKey ||
           this.shownMatches >= this.searchResult.matches.length) {
@@ -124,13 +143,13 @@ export default {
       }
     },
 
-    ellipsisText (text) {
+    ellipsisText (text: string): string {
       const len = text.length
       const MAX_PRETEXT_LEN = 6
       return len > MAX_PRETEXT_LEN ? `...${text.substring(len - MAX_PRETEXT_LEN)}` : text
     }
   }
-}
+})
 </script>
 
 <style scoped>

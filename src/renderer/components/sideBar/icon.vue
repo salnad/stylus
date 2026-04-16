@@ -2,10 +2,11 @@
     <span :class="className" class="file-icon"></span>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import fileIcons from 'muya/lib/ui/fileIcons'
 
-export default {
+export default Vue.extend({
   props: {
     name: {
       type: String,
@@ -14,7 +15,7 @@ export default {
     }
   },
   computed: {
-    className () {
+    className (): string[] {
       let classNames = fileIcons.getClassByName(this.name ? this.name : 'mock.md')
 
       if (!classNames) {
@@ -24,7 +25,7 @@ export default {
       return classNames.split(/\s/)
     }
   }
-}
+})
 </script>
 
 <style scoped>

@@ -23,24 +23,36 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import FileIcon from './icon.vue'
-import { mapState } from 'vuex'
 import { fileMixins } from '../../mixins'
 import { showContextMenu } from '../../contextMenu/sideBar'
 import bus from '../../bus'
+import type { TreeFileEntry } from '@/store/treeCtrl'
+import type { DocumentState } from '@/store/help'
 
-export default {
+interface ProjectStoreState {
+  project: {
+    renameCache: string | null
+    activeItem: Partial<TreeFileEntry>
+    clipboard: unknown
+  }
+  editor: {
+    currentFile: DocumentState
+    tabs: DocumentState[]
+  }
+}
+
+export default Vue.extend({
   mixins: [fileMixins],
   name: 'file',
-  data () {
-    return {
-      newName: ''
-    }
+  components: {
+    FileIcon
   },
   props: {
     file: {
-      type: Object,
+      type: Object as PropType<TreeFileEntry>,
       required: true
     },
     depth: {
@@ -48,47 +60,60 @@ export default {
       required: true
     }
   },
-  components: {
-    FileIcon
+  data () {
+    return {
+      newName: ''
+    }
   },
   computed: {
-    ...mapState({
-      renameCache: state => state.project.renameCache,
-      activeItem: state => state.project.activeItem,
-      clipboard: state => state.project.clipboard,
-      currentFile: state => state.editor.currentFile,
-      tabs: state => state.editor.tabs
-    })
+    renameCache (): string | null {
+      return (this.$store.state as ProjectStoreState).project.renameCache
+    },
+    activeItem (): Partial<TreeFileEntry> {
+      return (this.$store.state as ProjectStoreState).project.activeItem
+    },
+    clipboard (): unknown {
+      return (this.$store.state as ProjectStoreState).project.clipboard
+    },
+    currentFile (): DocumentState {
+      return (this.$store.state as ProjectStoreState).editor.currentFile
+    },
+    tabs (): DocumentState[] {
+      return (this.$store.state as ProjectStoreState).editor.tabs
+    }
   },
   created () {
     this.$nextTick(() => {
-      this.$refs.file.addEventListener('contextmenu', event => {
-        event.preventDefault()
-        this.$store.dispatch('CHANGE_ACTIVE_ITEM', this.file)
-        showContextMenu(event, !!this.clipboard)
-      })
-
+      (this.$refs.file as HTMLDivElement | undefined)?.addEventListener('contextmenu', this.handleContextMenu)
       bus.$on('SIDEBAR::show-rename-input', this.focusRenameInput)
     })
   },
+  beforeDestroy () {
+    bus.$off('SIDEBAR::show-rename-input', this.focusRenameInput)
+  },
   methods: {
     noop () {},
+    handleContextMenu (event: MouseEvent) {
+      event.preventDefault()
+      this.$store.dispatch('CHANGE_ACTIVE_ITEM', this.file)
+      showContextMenu(event, !!this.clipboard)
+    },
     focusRenameInput () {
       this.$nextTick(() => {
-        if (this.$refs.renameInput) {
-          this.$refs.renameInput.focus()
+        const renameInput = this.$refs.renameInput as HTMLInputElement | undefined
+        if (renameInput) {
+          renameInput.focus()
           this.newName = this.file.name
         }
       })
     },
     rename () {
-      const { newName } = this
-      if (newName) {
-        this.$store.dispatch('RENAME_IN_SIDEBAR', newName)
+      if (this.newName) {
+        this.$store.dispatch('RENAME_IN_SIDEBAR', this.newName)
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>
