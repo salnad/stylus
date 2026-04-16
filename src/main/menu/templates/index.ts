@@ -17,6 +17,7 @@ interface KeybindingsLike {
 interface PreferencesLike {
   getAll(): {
     autoSave?: boolean
+    theme?: string
   }
 }
 
