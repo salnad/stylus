@@ -20,8 +20,16 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { shell } from 'electron'
+import type { FontDescriptor } from 'fontmanager-redux'
+
+type FontTextBoxChangeHandler = (value: string) => void
+
+interface FontManagerModule {
+  getAvailableFontsSync(): FontDescriptor[]
+}
 
 // Example of fontmanager-redux objects:
 // {
@@ -45,18 +53,24 @@ import { shell } from 'electron'
 //     monospace: false
 // }
 
-export default {
+export default Vue.extend({
   data () {
-    this.defaultValue = this.value
     return {
+      defaultValue: this.value,
       fontFamilies: [],
       selectValue: this.value
     }
   },
   props: {
     description: String,
-    value: String,
-    onChange: Function,
+    value: {
+      type: String,
+      required: true
+    },
+    onChange: {
+      type: Function as PropType<FontTextBoxChangeHandler>,
+      required: true
+    },
     more: String,
     disable: {
       type: Boolean,
@@ -69,7 +83,7 @@ export default {
   },
 
   watch: {
-    value: function (value, oldValue) {
+    value (value: string, oldValue: string) {
       if (value !== oldValue) {
         this.defaultValue = value
         this.selectValue = value
@@ -78,7 +92,7 @@ export default {
   },
 
   methods: {
-    querySearch (queryString, callback) {
+    querySearch (queryString: string, callback: (results: string[]) => void) {
       const fontFamilies = this.fontFamilies
       const results = queryString && this.defaultValue !== queryString
         ? fontFamilies.filter(f => f.toLowerCase().indexOf(queryString.toLowerCase()) === 0)
@@ -86,7 +100,7 @@ export default {
       callback(results)
     },
 
-    handleSelect (value) {
+    handleSelect (value: string) {
       if (/^[^\s]+((-|\s)*[^\s])*$/.test(value)) {
         this.selectValue = value
         this.onChange(value)
@@ -101,14 +115,14 @@ export default {
   },
   mounted () {
     // Delay load native library because it's not needed for the editor and causes a delay.
-    const fontManager = require('fontmanager-redux')
+    const fontManager = require('fontmanager-redux') as FontManagerModule
     const { onlyMonospace } = this
     const buf = fontManager.getAvailableFontsSync()
       .filter(f => f.family && (!onlyMonospace || (onlyMonospace && f.monospace)))
       .map(f => f.family)
     this.fontFamilies = [...new Set(buf)].sort((a, b) => a.localeCompare(b))
   }
-}
+})
 </script>
 
 <style>

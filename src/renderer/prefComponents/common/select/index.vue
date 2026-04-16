@@ -25,10 +25,20 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { shell } from 'electron'
 
-export default {
+type SelectValue = string | number
+
+interface SelectOption {
+  label: string
+  value: SelectValue
+}
+
+type SelectChangeHandler = (value: SelectValue) => void
+
+export default Vue.extend({
   data () {
     return {
       selectValue: this.value
@@ -37,9 +47,18 @@ export default {
   props: {
     description: String,
     notes: String,
-    value: String | Number,
-    options: Array,
-    onChange: Function,
+    value: {
+      type: [String, Number] as PropType<SelectValue>,
+      required: true
+    },
+    options: {
+      type: Array as PropType<SelectOption[]>,
+      default: () => []
+    },
+    onChange: {
+      type: Function as PropType<SelectChangeHandler>,
+      required: true
+    },
     more: String,
     disable: {
       type: Boolean,
@@ -47,7 +66,7 @@ export default {
     }
   },
   watch: {
-    value: function (value, oldValue) {
+    value (value: SelectValue, oldValue: SelectValue) {
       if (value !== oldValue) {
         this.selectValue = value
       }
@@ -59,11 +78,11 @@ export default {
         shell.openExternal(this.more)
       }
     },
-    select (value) {
+    select (value: SelectValue) {
       this.onChange(value)
     }
   }
-}
+})
 </script>
 
 <style>

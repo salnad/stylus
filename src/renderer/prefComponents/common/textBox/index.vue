@@ -21,22 +21,31 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { shell } from 'electron'
 
-export default {
+type TextBoxChangeHandler = (value: string) => void
+
+export default Vue.extend({
   data () {
-    this.inputTimer = null
     return {
       inputText: this.input,
-      invalidInput: false
+      invalidInput: false,
+      inputTimer: null as ReturnType<typeof setTimeout> | null
     }
   },
   props: {
     description: String,
     notes: String,
-    input: String,
-    onChange: Function,
+    input: {
+      type: String,
+      required: true
+    },
+    onChange: {
+      type: Function as PropType<TextBoxChangeHandler>,
+      required: true
+    },
     more: String,
     disable: {
       type: Boolean,
@@ -51,14 +60,12 @@ export default {
       default: 800
     },
     regexValidator: {
-      type: RegExp,
-      default () {
-        return /(.*?)/
-      }
+      type: Object as PropType<RegExp>,
+      default: () => /(.*?)/
     }
   },
   watch: {
-    input: function (value, oldValue) {
+    input (value: string, oldValue: string) {
       if (value !== oldValue) {
         this.inputText = value
       }
@@ -70,7 +77,7 @@ export default {
         shell.openExternal(this.more)
       }
     },
-    handleInput (value) {
+    handleInput (value: string) {
       const result = this.regexValidator.test(value)
       this.invalidInput = !result
 
@@ -94,7 +101,7 @@ export default {
       }
     }
   }
-}
+})
 </script>
 
 <style>

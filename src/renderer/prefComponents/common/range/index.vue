@@ -17,10 +17,14 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { shell } from 'electron'
 
-export default {
+type RangeValue = string | number
+type RangeChangeHandler = (value: RangeValue) => void
+
+export default Vue.extend({
   data () {
     return {
       selectValue: this.value
@@ -28,10 +32,16 @@ export default {
   },
   props: {
     description: String,
-    value: String | Number,
+    value: {
+      type: [String, Number] as PropType<RangeValue>,
+      required: true
+    },
     min: Number,
     max: Number,
-    onChange: Function,
+    onChange: {
+      type: Function as PropType<RangeChangeHandler>,
+      required: true
+    },
     unit: String,
     step: Number,
     more: String,
@@ -41,7 +51,7 @@ export default {
     }
   },
   watch: {
-    value: function (value, oldValue) {
+    value (value: RangeValue, oldValue: RangeValue) {
       if (value !== oldValue) {
         this.selectValue = value
       }
@@ -53,11 +63,11 @@ export default {
         shell.openExternal(this.more)
       }
     },
-    select (value) {
+    select (value: RangeValue) {
       this.onChange(value)
     }
   }
-}
+})
 </script>
 
 <style>

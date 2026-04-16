@@ -25,10 +25,13 @@
   </section>
 </template>
 
-<script>
+<script lang="ts">
+import Vue, { type PropType } from 'vue'
 import { shell } from 'electron'
 
-export default {
+type SwitchChangeHandler = (value: boolean) => void
+
+export default Vue.extend({
   data () {
     return {
       status: this.bool
@@ -37,8 +40,14 @@ export default {
   props: {
     description: String,
     notes: String,
-    bool: Boolean,
-    onChange: Function,
+    bool: {
+      type: Boolean,
+      required: true
+    },
+    onChange: {
+      type: Function as PropType<SwitchChangeHandler>,
+      required: true
+    },
     more: String,
     detailedDescription: String,
     disable: {
@@ -47,7 +56,7 @@ export default {
     }
   },
   watch: {
-    bool: function (value, oldValue) {
+    bool (value: boolean, oldValue: boolean) {
       if (value !== oldValue) {
         this.status = value
       }
@@ -59,11 +68,11 @@ export default {
         shell.openExternal(this.more)
       }
     },
-    handleSwitchChange (value) {
+    handleSwitchChange (value: boolean) {
       this.onChange(value)
     }
   }
-}
+})
 </script>
 
 <style>
