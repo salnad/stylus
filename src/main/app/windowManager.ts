@@ -14,6 +14,11 @@ interface AppMenuContract {
 
 interface PreferencesContract {
   getItem(key: string): unknown
+  getAll(): {
+    autoGuessEncoding?: boolean
+    trimTrailingNewline?: number
+  }
+  getPreferredEol(): 'lf' | 'crlf'
 }
 
 interface ApplicationWindowLike extends EventEmitter {
