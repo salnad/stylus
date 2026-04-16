@@ -155,9 +155,9 @@ class QuickOpenCommand {
     return new Promise<QuickOpenSubcommand[]>((resolve, reject) => {
       let canceled = false
       const promises = this._directorySearcher.search([rootPath], '', {
-        didMatch: (result: FileSearcherResult) => {
+        didMatch: (result: unknown) => {
           if (!canceled) {
-            searchResult.push(result)
+            searchResult.push(result as FileSearcherResult)
           }
         },
         didSearchPaths: (numPathsFound: number) => {
