@@ -118,6 +118,20 @@ declare module '*.node' {
   export default content
 }
 
+declare module 'fuzzaldrin' {
+  export function filter<T>(items: T[], query: string, options?: { key?: keyof T | string }): T[]
+}
+
+declare module 'command-exists' {
+  interface CommandExists {
+    (command: string): Promise<void>
+    sync(command: string): boolean
+  }
+
+  const commandExists: CommandExists
+  export default commandExists
+}
+
 declare module 'ced' {
   function ced(input: Buffer | Uint8Array | ArrayBuffer | string): string
   export default ced
