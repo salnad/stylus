@@ -18,7 +18,6 @@
     "dist",
     "coverage",
     "static/themes",
-    "src/muya/dist",
-    "src/main/menu/templates/index.js"
+    "src/muya/dist"
   ]
 }

@@ -117,3 +117,8 @@ declare module '*.node' {
   const content: any
   export default content
 }
+
+declare module 'ced' {
+  function ced(input: Buffer | Uint8Array | ArrayBuffer | string): string
+  export default ced
+}

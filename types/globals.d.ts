@@ -8,6 +8,15 @@ interface MarkTextRendererPaths {
   ripgrepBinaryPath: string
 }
 
+interface MarkTextMainPaths {
+  electronUserDataPath: string
+  userDataPath: string
+  logPath: string
+  preferencesPath: string
+  dataCenterPath: string
+  preferencesFilePath: string
+}
+
 interface MarkTextInitialState {
   codeFontFamily?: string | null
   codeFontSize?: string | null
@@ -34,7 +43,22 @@ declare global {
     DIRNAME: string
   }
 
+  var __static: string | undefined
+  var marktext: MarkTextGlobalState
+  var MARKTEXT_GIT_SHORT_HASH: string | undefined
+  var MARKTEXT_GIT_HASH: string | undefined
+  var MARKTEXT_VERSION: string | undefined
+  var MARKTEXT_VERSION_STRING: string | undefined
+  var MARKTEXT_IS_STABLE: boolean | undefined
+  var MARKTEXT_DEBUG: boolean | undefined
+  var MARKTEXT_DEBUG_VERBOSE: number | undefined
+  var MARKTEXT_SAFE_MODE: boolean | undefined
+
   namespace NodeJS {
+    interface Process {
+      resourcesPath: string
+    }
+
     interface Global {
       __static?: string
       marktext: MarkTextGlobalState
