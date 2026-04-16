@@ -68,68 +68,78 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { shell } from 'electron'
-import services, { isValidService } from './services.js'
-import legalNoticesCheckbox from './legalNoticesCheckbox'
+import services, { isValidService, type UploaderServiceMap } from './services'
+import LegalNoticesCheckbox from './legalNoticesCheckbox.vue'
 import { isFileExecutableSync } from '@/util/fileSystem'
-import CurSelect from '@/prefComponents/common/select'
+import CurSelect from '@/prefComponents/common/select/index.vue'
 import commandExists from 'command-exists'
 import notice from '@/services/notification'
+import type { SelectOption } from '@/prefComponents/general/config'
+import type { PreferencesState } from '@/store/preferences'
 
-export default {
+type UploaderKind = 'none' | 'picgo' | 'github' | 'cliScript'
+type SavableUploaderKind = 'github' | 'cliScript'
+
+interface GitHubConfig {
+  owner: string
+  repo: string
+  branch: string
+}
+
+interface UploaderStoreState {
+  preferences: Pick<PreferencesState, 'currentUploader' | 'imageBed' | 'githubToken' | 'cliScript'>
+}
+
+export default Vue.extend({
   components: {
-    legalNoticesCheckbox,
+    LegalNoticesCheckbox,
     CurSelect
   },
   data () {
-    this.uploaderOptions = Object.keys(services).map(name => {
+    const uploaderOptions: Array<SelectOption<string>> = Object.keys(services).map(name => {
       const { name: label } = services[name]
       return {
         label,
         value: name
       }
     })
+
     return {
+      uploaderOptions,
       githubToken: '',
       github: {
         owner: '',
         repo: '',
         branch: ''
-      },
+      } as GitHubConfig,
       cliScript: '',
       picgoExists: true,
-      uploadServices: services,
+      uploadServices: services as UploaderServiceMap,
       legalNoticesErrorStates: {
         github: false
-      }
+      } as Partial<Record<SavableUploaderKind, boolean>>
     }
   },
   computed: {
-    currentUploader: {
-      get: function () {
-        return this.$store.state.preferences.currentUploader
-      }
+    currentUploader (): PreferencesState['currentUploader'] {
+      return (this.$store.state as UploaderStoreState).preferences.currentUploader
     },
-    imageBed: {
-      get: function () {
-        return this.$store.state.preferences.imageBed
-      }
+    imageBed (): PreferencesState['imageBed'] {
+      return (this.$store.state as UploaderStoreState).preferences.imageBed
     },
-    prefGithubToken: {
-      get: function () {
-        return this.$store.state.preferences.githubToken
-      }
+    prefGithubToken (): string {
+      return (this.$store.state as UploaderStoreState).preferences.githubToken
     },
-    prefCliScript: {
-      get: function () {
-        return this.$store.state.preferences.cliScript
-      }
+    prefCliScript (): string {
+      return (this.$store.state as UploaderStoreState).preferences.cliScript
     },
-    githubDisable () {
+    githubDisable (): boolean {
       return !this.githubToken || !this.github.owner || !this.github.repo
     },
-    cliScriptDisable () {
+    cliScriptDisable (): boolean {
       if (!this.cliScript) {
         return true
       }
@@ -137,67 +147,77 @@ export default {
     }
   },
   watch: {
-    imageBed: function (value, oldValue) {
+    imageBed (value: PreferencesState['imageBed'], oldValue: PreferencesState['imageBed']) {
       if (value !== oldValue) {
-        this.github = value.github
+        this.github = {
+          ...value.github
+        }
       }
     }
   },
   created () {
     this.$nextTick(() => {
-      this.github = this.imageBed.github
+      this.github = {
+        ...this.imageBed.github
+      }
       this.githubToken = this.prefGithubToken
       this.cliScript = this.prefCliScript
       this.testPicgo()
 
-      if (services.hasOwnProperty(this.currentUploader)) {
-        services[this.currentUploader].agreedToLegalNotices = true
+      if (Object.prototype.hasOwnProperty.call(services, this.currentUploader)) {
+        services[this.currentUploader as UploaderKind].agreedToLegalNotices = true
       }
     })
   },
   methods: {
-    isValidUploaderService (name) {
+    isValidUploaderService (name: string): boolean {
       return isValidService(name)
     },
 
-    getServiceNameById (id) {
+    getServiceNameById (id: string): string {
       const service = services[id]
       return service ? service.name : id
     },
 
-    open (link) {
+    open (link: string) {
       shell.openExternal(link)
     },
 
-    save (type) {
+    save (type: SavableUploaderKind) {
       if (!this.validate(type)) {
         return
       }
-      const newImageBedConfig = Object.assign({}, this.imageBed, { [type]: this[type] })
+
+      const nextValue = type === 'github' ? this.github : this.cliScript
+      const newImageBedConfig = Object.assign({}, this.imageBed, { [type]: nextValue })
+
       this.$store.dispatch('SET_USER_DATA', {
         type: 'imageBed',
         value: newImageBedConfig
       })
+
       if (type === 'github') {
         this.$store.dispatch('SET_USER_DATA', {
           type: 'githubToken',
           value: this.githubToken
         })
-      }
-      if (type === 'cliScript') {
+      } else {
         this.$store.dispatch('SET_USER_DATA', {
           type: 'cliScript',
           value: this.cliScript
         })
       }
+
       notice.notify({
         title: 'Save Config',
-        message: type === 'github' ? 'The Github configration has been saved.' : 'The command line script configuration has been saved',
+        message: type === 'github'
+          ? 'The Github configration has been saved.'
+          : 'The command line script configuration has been saved',
         type: 'primary'
       })
     },
 
-    setCurrentUploader (value) {
+    setCurrentUploader (value: string) {
       const type = 'currentUploader'
       this.$store.dispatch('SET_USER_DATA', { type, value })
     },
@@ -206,21 +226,21 @@ export default {
       this.picgoExists = commandExists.sync('picgo')
     },
 
-    validate (value) {
+    validate (value: SavableUploaderKind): boolean {
       const service = services[value]
       const { agreedToLegalNotices } = service
       if (!agreedToLegalNotices) {
         this.legalNoticesErrorStates[value] = true
         return false
       }
-      if (this.legalNoticesErrorStates[value] !== undefined) {
+      if (typeof this.legalNoticesErrorStates[value] !== 'undefined') {
         this.legalNoticesErrorStates[value] = false
       }
 
       return true
     }
   }
-}
+})
 </script>
 
 <style>
