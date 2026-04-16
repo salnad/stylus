@@ -57,7 +57,7 @@ export default Vue.extend({
   data () {
     return {
       defaultValue: this.value,
-      fontFamilies: [],
+      fontFamilies: [] as string[],
       selectValue: this.value
     }
   },

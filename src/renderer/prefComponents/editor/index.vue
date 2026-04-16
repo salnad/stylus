@@ -164,15 +164,15 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
-import Compound from '../common/compound'
-import FontTextBox from '../common/fontTextBox'
-import Range from '../common/range'
-import CurSelect from '../common/select'
-import Bool from '../common/bool'
-import Separator from '../common/separator'
-import TextBox from '../common/textBox'
+<script lang="ts">
+import Vue from 'vue'
+import Compound from '../common/compound/index.vue'
+import FontTextBox from '../common/fontTextBox/index.vue'
+import Range from '../common/range/index.vue'
+import CurSelect from '../common/select/index.vue'
+import Bool from '../common/bool/index.vue'
+import Separator from '../common/separator/index.vue'
+import TextBox from '../common/textBox/index.vue'
 import {
   tabSizeOptions,
   endOfLineOptions,
@@ -180,8 +180,45 @@ import {
   trimTrailingNewlineOptions,
   getDefaultEncodingOptions
 } from './config'
+import type { PreferencesState } from '@/store/preferences'
+import type { SelectOption } from './config'
 
-export default {
+type EditorPreferenceKey =
+  | 'fontSize'
+  | 'editorFontFamily'
+  | 'lineHeight'
+  | 'autoPairBracket'
+  | 'autoPairMarkdownSyntax'
+  | 'autoPairQuote'
+  | 'tabSize'
+  | 'endOfLine'
+  | 'textDirection'
+  | 'codeFontSize'
+  | 'codeFontFamily'
+  | 'codeBlockLineNumbers'
+  | 'trimUnnecessaryCodeBlockEmptyLines'
+  | 'hideQuickInsertHint'
+  | 'hideLinkPopup'
+  | 'autoCheck'
+  | 'editorLineWidth'
+  | 'defaultEncoding'
+  | 'autoGuessEncoding'
+  | 'trimTrailingNewline'
+
+type EditorPreferenceValue =
+  | PreferencesState[EditorPreferenceKey]
+  | string
+  | number
+  | boolean
+
+interface PreferencesOnlyStore {
+  state: {
+    preferences: PreferencesState
+  }
+  dispatch(type: 'SET_SINGLE_PREFERENCE', payload: { type: EditorPreferenceKey, value: EditorPreferenceValue }): void
+}
+
+export default Vue.extend({
   components: {
     Compound,
     FontTextBox,
@@ -192,43 +229,82 @@ export default {
     TextBox
   },
   data () {
-    this.tabSizeOptions = tabSizeOptions
-    this.endOfLineOptions = endOfLineOptions
-    this.textDirectionOptions = textDirectionOptions
-    this.trimTrailingNewlineOptions = trimTrailingNewlineOptions
-    this.defaultEncodingOptions = getDefaultEncodingOptions()
-    return {}
+    return {
+      tabSizeOptions,
+      endOfLineOptions,
+      textDirectionOptions,
+      trimTrailingNewlineOptions,
+      defaultEncodingOptions: getDefaultEncodingOptions() as Array<SelectOption<string>>
+    }
   },
   computed: {
-    ...mapState({
-      fontSize: state => state.preferences.fontSize,
-      editorFontFamily: state => state.preferences.editorFontFamily,
-      lineHeight: state => state.preferences.lineHeight,
-      autoPairBracket: state => state.preferences.autoPairBracket,
-      autoPairMarkdownSyntax: state => state.preferences.autoPairMarkdownSyntax,
-      autoPairQuote: state => state.preferences.autoPairQuote,
-      tabSize: state => state.preferences.tabSize,
-      endOfLine: state => state.preferences.endOfLine,
-      textDirection: state => state.preferences.textDirection,
-      codeFontSize: state => state.preferences.codeFontSize,
-      codeFontFamily: state => state.preferences.codeFontFamily,
-      codeBlockLineNumbers: state => state.preferences.codeBlockLineNumbers,
-      trimUnnecessaryCodeBlockEmptyLines: state => state.preferences.trimUnnecessaryCodeBlockEmptyLines,
-      hideQuickInsertHint: state => state.preferences.hideQuickInsertHint,
-      hideLinkPopup: state => state.preferences.hideLinkPopup,
-      autoCheck: state => state.preferences.autoCheck,
-      editorLineWidth: state => state.preferences.editorLineWidth,
-      defaultEncoding: state => state.preferences.defaultEncoding,
-      autoGuessEncoding: state => state.preferences.autoGuessEncoding,
-      trimTrailingNewline: state => state.preferences.trimTrailingNewline
-    })
+    fontSize (): number {
+      return (this.$store as PreferencesOnlyStore).state.preferences.fontSize
+    },
+    editorFontFamily (): string {
+      return (this.$store as PreferencesOnlyStore).state.preferences.editorFontFamily
+    },
+    lineHeight (): number {
+      return (this.$store as PreferencesOnlyStore).state.preferences.lineHeight
+    },
+    autoPairBracket (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.autoPairBracket
+    },
+    autoPairMarkdownSyntax (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.autoPairMarkdownSyntax
+    },
+    autoPairQuote (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.autoPairQuote
+    },
+    tabSize (): number {
+      return (this.$store as PreferencesOnlyStore).state.preferences.tabSize
+    },
+    endOfLine (): string {
+      return (this.$store as PreferencesOnlyStore).state.preferences.endOfLine
+    },
+    textDirection (): string {
+      return (this.$store as PreferencesOnlyStore).state.preferences.textDirection
+    },
+    codeFontSize (): number {
+      return (this.$store as PreferencesOnlyStore).state.preferences.codeFontSize
+    },
+    codeFontFamily (): string {
+      return (this.$store as PreferencesOnlyStore).state.preferences.codeFontFamily
+    },
+    codeBlockLineNumbers (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.codeBlockLineNumbers
+    },
+    trimUnnecessaryCodeBlockEmptyLines (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.trimUnnecessaryCodeBlockEmptyLines
+    },
+    hideQuickInsertHint (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.hideQuickInsertHint
+    },
+    hideLinkPopup (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.hideLinkPopup
+    },
+    autoCheck (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.autoCheck
+    },
+    editorLineWidth (): string {
+      return (this.$store as PreferencesOnlyStore).state.preferences.editorLineWidth
+    },
+    defaultEncoding (): string {
+      return (this.$store as PreferencesOnlyStore).state.preferences.defaultEncoding
+    },
+    autoGuessEncoding (): boolean {
+      return (this.$store as PreferencesOnlyStore).state.preferences.autoGuessEncoding
+    },
+    trimTrailingNewline (): number {
+      return (this.$store as PreferencesOnlyStore).state.preferences.trimTrailingNewline
+    }
   },
   methods: {
-    onSelectChange (type, value) {
-      this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
+    onSelectChange (type: EditorPreferenceKey, value: EditorPreferenceValue) {
+      (this.$store as PreferencesOnlyStore).dispatch('SET_SINGLE_PREFERENCE', { type, value })
     }
   }
-}
+})
 </script>
 
 <style scoped>

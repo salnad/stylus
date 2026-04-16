@@ -60,20 +60,30 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { ipcRenderer } from 'electron'
 import log from 'electron-log'
-import { mapState } from 'vuex'
-import Compound from '../common/compound'
-import CurSelect from '../common/select'
-import Bool from '../common/bool'
-import Separator from '../common/separator'
+import type { PreferencesState } from '@/store/preferences'
+import type { SelectOption } from '../general/config'
+import Compound from '../common/compound/index.vue'
+import CurSelect from '../common/select/index.vue'
+import Bool from '../common/bool/index.vue'
+import Separator from '../common/separator/index.vue'
 import { isOsx } from '@/util'
 import { SpellChecker } from '@/spellchecker'
 import { getLanguageName } from '@/spellchecker/languageMap'
 import notice from '@/services/notification'
 
-export default {
+interface RootState {
+  preferences: PreferencesState
+}
+
+interface WordDictionaryEntry {
+  word: string
+}
+
+export default Vue.extend({
   components: {
     Bool,
     Compound,
@@ -81,19 +91,24 @@ export default {
     Separator
   },
   data () {
-    this.isOsx = isOsx
     return {
-      availableDictionaries: [],
-      wordsInCustomDictionary: [],
-      errorMessage: ''
+      isOsx,
+      availableDictionaries: [] as Array<SelectOption<string>>,
+      wordsInCustomDictionary: [] as WordDictionaryEntry[],
+      errorMessage: '',
+      spellchecker: null as SpellChecker | null
     }
   },
   computed: {
-    ...mapState({
-      spellcheckerEnabled: state => state.preferences.spellcheckerEnabled,
-      spellcheckerNoUnderline: state => state.preferences.spellcheckerNoUnderline,
-      spellcheckerLanguage: state => state.preferences.spellcheckerLanguage
-    })
+    spellcheckerEnabled (): boolean {
+      return (this.$store.state as RootState).preferences.spellcheckerEnabled
+    },
+    spellcheckerNoUnderline (): boolean {
+      return (this.$store.state as RootState).preferences.spellcheckerNoUnderline
+    },
+    spellcheckerLanguage (): string {
+      return (this.$store.state as RootState).preferences.spellcheckerLanguage
+    }
   },
   mounted () {
     if (!isOsx) {
@@ -103,34 +118,32 @@ export default {
         })
 
       ipcRenderer.invoke('mt::spellchecker-get-custom-dictionary-words')
-        .then(words => {
-          this.wordsInCustomDictionary = words.map(word => { return { word } })
+        .then((words: string[]) => {
+          this.wordsInCustomDictionary = words.map(word => ({ word }))
         })
     }
   },
   methods: {
-    async getAvailableDictionaries () {
+    async getAvailableDictionaries (): Promise<Array<SelectOption<string>>> {
       const dictionaries = await SpellChecker.getAvailableDictionaries()
-      return dictionaries.map(selectedItem => {
-        return {
-          value: selectedItem,
-          label: getLanguageName(selectedItem)
-        }
-      })
+      return dictionaries.map(selectedItem => ({
+        value: selectedItem,
+        label: getLanguageName(selectedItem) ?? `Unknown (${selectedItem})`
+      }))
     },
-    async ensureDictLanguage (lang) {
+    async ensureDictLanguage (lang: string): Promise<void> {
       if (!this.spellchecker) {
         this.spellchecker = new SpellChecker(true, 'en-US')
       }
       await this.spellchecker.switchLanguage(lang)
     },
 
-    handleSpellcheckerLanguage (languageCode) {
+    handleSpellcheckerLanguage (languageCode: string) {
       this.ensureDictLanguage(languageCode)
         .then(() => {
           this.onSelectChange('spellcheckerLanguage', languageCode)
         })
-        .catch(error => {
+        .catch((error: Error) => {
           log.error(error)
           notice.notify({
             title: 'Failed to switch language',
@@ -139,16 +152,16 @@ export default {
           })
         })
     },
-    handleSpellcheckerEnabled (isEnabled) {
+    handleSpellcheckerEnabled (isEnabled: boolean) {
       this.onSelectChange('spellcheckerEnabled', isEnabled)
     },
-    onSelectChange (type, value) {
+    onSelectChange (type: keyof PreferencesState, value: PreferencesState[keyof PreferencesState]) {
       this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
     },
-    handleDeleteClick (selectedItem) {
+    handleDeleteClick (selectedItem: WordDictionaryEntry) {
       if (selectedItem && typeof selectedItem.word === 'string') {
         ipcRenderer.invoke('mt::spellchecker-remove-word', selectedItem.word)
-          .then(success => {
+          .then((success: boolean) => {
             if (success) {
               this.wordsInCustomDictionary = this.wordsInCustomDictionary.filter(item => item.word !== selectedItem.word)
             } else {
@@ -159,11 +172,11 @@ export default {
               })
             }
           })
-          .catch(error => log.error(error))
+          .catch((error: Error) => log.error(error))
       }
     }
   }
-}
+})
 </script>
 
 <style scoped>

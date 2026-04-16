@@ -28,57 +28,58 @@
   </section>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
 import { shell } from 'electron'
-import Bool from '@/prefComponents/common/bool'
-import Compound from '@/prefComponents/common/compound'
-import TextBox from '@/prefComponents/common/textBox'
+import Bool from '@/prefComponents/common/bool/index.vue'
+import Compound from '@/prefComponents/common/compound/index.vue'
+import TextBox from '@/prefComponents/common/textBox/index.vue'
+import type { PreferencesState } from '@/store/preferences'
 
-export default {
+type FolderSettingPreferenceKey = 'imagePreferRelativeDirectory' | 'imageRelativeDirectoryName'
+
+interface FolderSettingState {
+  preferences: Pick<PreferencesState, 'imageFolderPath' | 'imagePreferRelativeDirectory' | 'imageRelativeDirectoryName' | 'imageInsertAction'>
+}
+
+export default Vue.extend({
   components: {
     Bool,
     Compound,
     TextBox
   },
-  data () {
-    return {
-    }
-  },
   computed: {
-    ...mapState({
-      imageFolderPath: state => state.preferences.imageFolderPath,
-      imagePreferRelativeDirectory: state => state.preferences.imagePreferRelativeDirectory,
-      imageRelativeDirectoryName: state => state.preferences.imageRelativeDirectoryName
-    }),
-    imageInsertAction: {
-      get: function () {
-        return this.$store.state.preferences.imageInsertAction
-      }
+    imageFolderPath (): string {
+      return (this.$store.state as FolderSettingState).preferences.imageFolderPath
     },
-    folderPathPlaceholder: {
-      get: function () {
-        return this.$store.state.preferences.imageFolderPath || ''
-      }
+    imagePreferRelativeDirectory (): boolean {
+      return (this.$store.state as FolderSettingState).preferences.imagePreferRelativeDirectory
     },
-    relativeDirectoryNamePlaceholder: {
-      get: function () {
-        return this.$store.state.preferences.imageRelativeDirectoryName || 'assets'
-      }
+    imageRelativeDirectoryName (): string {
+      return (this.$store.state as FolderSettingState).preferences.imageRelativeDirectoryName
+    },
+    imageInsertAction (): PreferencesState['imageInsertAction'] {
+      return (this.$store.state as FolderSettingState).preferences.imageInsertAction
+    },
+    folderPathPlaceholder (): string {
+      return (this.$store.state as FolderSettingState).preferences.imageFolderPath || ''
+    },
+    relativeDirectoryNamePlaceholder (): string {
+      return (this.$store.state as FolderSettingState).preferences.imageRelativeDirectoryName || 'assets'
     }
   },
   methods: {
     openImageFolder () {
       shell.openPath(this.imageFolderPath)
     },
-    modifyImageFolderPath (value) {
+    modifyImageFolderPath (value?: string) {
       return this.$store.dispatch('SET_IMAGE_FOLDER_PATH', value)
     },
-    onSelectChange (type, value) {
+    onSelectChange (type: FolderSettingPreferenceKey, value: PreferencesState[FolderSettingPreferenceKey]) {
       this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
     }
   }
-}
+})
 </script>
 
 <style scoped>

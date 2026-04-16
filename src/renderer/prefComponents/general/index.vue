@@ -118,13 +118,13 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
-import Compound from '../common/compound'
-import Range from '../common/range'
-import CurSelect from '../common/select'
-import Bool from '../common/bool'
-import Separator from '../common/separator'
+<script lang="ts">
+import Vue from 'vue'
+import type { PreferenceKey, PreferenceState } from 'common/types/preferences'
+import Compound from '../common/compound/index.vue'
+import Range from '../common/range/index.vue'
+import CurSelect from '../common/select/index.vue'
+import Bool from '../common/bool/index.vue'
 import { isOsx } from '@/util'
 
 import {
@@ -134,55 +134,79 @@ import {
   languageOptions
 } from './config'
 
-export default {
+interface PreferencesRootState {
+  preferences: PreferenceState
+}
+
+export default Vue.extend({
   components: {
     Compound,
     Bool,
     Range,
-    CurSelect,
-    Separator
+    CurSelect
   },
   data () {
-    this.titleBarStyleOptions = titleBarStyleOptions
-    this.zoomOptions = zoomOptions
-    this.fileSortByOptions = fileSortByOptions
-    this.languageOptions = languageOptions
-    this.isOsx = isOsx
-    return {}
+    return {
+      titleBarStyleOptions,
+      zoomOptions,
+      fileSortByOptions,
+      languageOptions,
+      isOsx
+    }
   },
   computed: {
-    ...mapState({
-      autoSave: state => state.preferences.autoSave,
-      autoSaveDelay: state => state.preferences.autoSaveDelay,
-      titleBarStyle: state => state.preferences.titleBarStyle,
-      defaultDirectoryToOpen: state => state.preferences.defaultDirectoryToOpen,
-      openFilesInNewWindow: state => state.preferences.openFilesInNewWindow,
-      openFolderInNewWindow: state => state.preferences.openFolderInNewWindow,
-      zoom: state => state.preferences.zoom,
-      hideScrollbar: state => state.preferences.hideScrollbar,
-      wordWrapInToc: state => state.preferences.wordWrapInToc,
-      fileSortBy: state => state.preferences.fileSortBy,
-      language: state => state.preferences.language
-    }),
+    autoSave (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.autoSave
+    },
+    autoSaveDelay (): number {
+      return (this.$store.state as PreferencesRootState).preferences.autoSaveDelay
+    },
+    titleBarStyle (): PreferenceState['titleBarStyle'] {
+      return (this.$store.state as PreferencesRootState).preferences.titleBarStyle
+    },
+    defaultDirectoryToOpen (): string {
+      return (this.$store.state as PreferencesRootState).preferences.defaultDirectoryToOpen
+    },
+    openFilesInNewWindow (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.openFilesInNewWindow
+    },
+    openFolderInNewWindow (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.openFolderInNewWindow
+    },
+    zoom (): number {
+      return (this.$store.state as PreferencesRootState).preferences.zoom
+    },
+    hideScrollbar (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.hideScrollbar
+    },
+    wordWrapInToc (): boolean {
+      return (this.$store.state as PreferencesRootState).preferences.wordWrapInToc
+    },
+    fileSortBy (): PreferenceState['fileSortBy'] {
+      return (this.$store.state as PreferencesRootState).preferences.fileSortBy
+    },
+    language (): string {
+      return (this.$store.state as PreferencesRootState).preferences.language
+    },
     startUpAction: {
-      get: function () {
-        return this.$store.state.preferences.startUpAction
+      get (): PreferenceState['startUpAction'] {
+        return (this.$store.state as PreferencesRootState).preferences.startUpAction
       },
-      set: function (value) {
-        const type = 'startUpAction'
+      set (value: PreferenceState['startUpAction']) {
+        const type: PreferenceKey = 'startUpAction'
         this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
       }
     }
   },
   methods: {
-    onSelectChange (type, value) {
+    onSelectChange<T extends PreferenceKey> (type: T, value: PreferenceState[T]) {
       this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
     },
     selectDefaultDirectoryToOpen () {
       this.$store.dispatch('SELECT_DEFAULT_DIRECTORY_TO_OPEN')
     }
   }
-}
+})
 </script>
 
 <style scoped>

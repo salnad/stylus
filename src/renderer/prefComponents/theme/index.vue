@@ -31,34 +31,49 @@
   </div>
 </template>
 
-<script>
-import { mapState } from 'vuex'
+<script lang="ts">
+import Vue from 'vue'
 import themeMd from './theme.md'
 import { autoSwitchThemeOptions, themes } from './config'
 import markdownToHtml from '@/util/markdownToHtml'
-import CurSelect from '../common/select'
-import Separator from '../common/separator'
+import CurSelect from '../common/select/index.vue'
+import Separator from '../common/separator/index.vue'
+import type { PreferencesState } from '@/store/preferences'
+import type { AutoSwitchTheme } from 'common/types/preferences'
 
-export default {
+interface RenderedTheme {
+  name: string
+  html: string
+}
+
+interface ThemeStoreState {
+  preferences: PreferencesState
+}
+
+type ThemePreferenceKey = 'theme' | 'autoSwitchTheme'
+
+export default Vue.extend({
   components: {
     CurSelect,
     Separator
   },
   data () {
-    this.autoSwitchThemeOptions = autoSwitchThemeOptions
     return {
-      themes: []
+      autoSwitchThemeOptions,
+      themes: [] as RenderedTheme[]
     }
   },
   computed: {
-    ...mapState({
-      autoSwitchTheme: state => state.preferences.autoSwitchTheme,
-      theme: state => state.preferences.theme
-    })
+    autoSwitchTheme (): AutoSwitchTheme {
+      return this.$store.state.preferences.autoSwitchTheme as AutoSwitchTheme
+    },
+    theme (): string {
+      return this.$store.state.preferences.theme
+    }
   },
   created () {
     this.$nextTick(async () => {
-      const newThemes = []
+      const newThemes: RenderedTheme[] = []
       for (const theme of themes) {
         const html = await markdownToHtml(themeMd.replace(/{theme}/, theme.name))
         newThemes.push({
@@ -71,11 +86,11 @@ export default {
     })
   },
   methods: {
-    onSelectChange (type, value) {
+    onSelectChange (type: ThemePreferenceKey, value: ThemeStoreState['preferences'][ThemePreferenceKey]) {
       this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
     }
   }
-}
+})
 </script>
 
 <style>

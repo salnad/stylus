@@ -18,14 +18,21 @@
   </div>
 </template>
 
-<script>
-import Separator from '../common/separator'
-import Uploader from './components/uploader'
-import CurSelect from '@/prefComponents/common/select'
-import FolderSetting from './components/folderSetting'
+<script lang="ts">
+import Vue from 'vue'
+import Separator from '../common/separator/index.vue'
+import Uploader from './components/uploader/index.vue'
+import CurSelect from '@/prefComponents/common/select/index.vue'
+import FolderSetting from './components/folderSetting/index.vue'
 import { imageActions } from './config'
+import type { ImageActionValue } from './config'
+import type { PreferencesState } from '@/store/preferences'
 
-export default {
+interface ImageStoreState {
+  preferences: Pick<PreferencesState, 'imageInsertAction'>
+}
+
+export default Vue.extend({
   components: {
     Separator,
     CurSelect,
@@ -33,23 +40,21 @@ export default {
     Uploader
   },
   data () {
-    this.imageActions = imageActions
-
-    return {}
+    return {
+      imageActions
+    }
   },
   computed: {
-    imageInsertAction: {
-      get: function () {
-        return this.$store.state.preferences.imageInsertAction
-      }
+    imageInsertAction (): ImageActionValue {
+      return (this.$store.state as ImageStoreState).preferences.imageInsertAction as ImageActionValue
     }
   },
   methods: {
-    onSelectChange (type, value) {
+    onSelectChange (type: 'imageInsertAction', value: ImageActionValue) {
       this.$store.dispatch('SET_SINGLE_PREFERENCE', { type, value })
     }
   }
-}
+})
 </script>
 
 <style>

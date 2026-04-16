@@ -10,21 +10,23 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { getCurrentWindow } from '@electron/remote'
-import { closePath } from '../../assets/window-controls.js'
+import { closePath } from '../../assets/window-controls'
 
-export default {
+export default Vue.extend({
   data () {
-    this.windowIconClose = closePath
-    return {}
+    return {
+      windowIconClose: closePath
+    }
   },
   methods: {
     handleCloseClick () {
       getCurrentWindow().close()
     }
   }
-}
+})
 </script>
 
 <style scoped>
