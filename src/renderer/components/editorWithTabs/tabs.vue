@@ -40,51 +40,78 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import Vue from 'vue'
 import { shell, clipboard } from 'electron'
-import { mapState } from 'vuex'
 import autoScroll from 'dom-autoscroller'
 import dragula from 'dragula'
 import { tabsMixins } from '../../mixins'
 import { showContextMenu } from '../../contextMenu/tabs'
 import bus from '../../bus'
+import type { DocumentState } from '@/store/help'
 
-export default {
-  data () {
-    this.autoScroller = null
-    this.drake = null
-    return {}
-  },
+interface TabsStoreState {
+  editor: {
+    currentFile: DocumentState
+    tabs: DocumentState[]
+  }
+}
+
+interface AutoScrollerLike {
+  down?: boolean
+  destroy(force?: boolean): void
+}
+
+interface DrakeLike {
+  dragging?: boolean
+  destroy(): void
+  on(event: 'drop', handler: (el: Element, target: Element | null, source: Element | null, sibling: Element | null) => void): DrakeLike
+}
+
+type MaybeElement = HTMLElement | SVGElement
+
+export default Vue.extend({
   mixins: [tabsMixins],
+  data () {
+    return {
+      autoScroller: null as AutoScrollerLike | null,
+      drake: null as DrakeLike | null
+    }
+  },
   computed: {
-    ...mapState({
-      currentFile: state => state.editor.currentFile,
-      tabs: state => state.editor.tabs
-    })
+    currentFile (): DocumentState {
+      return (this.$store.state as TabsStoreState).editor.currentFile
+    },
+    tabs (): DocumentState[] {
+      return (this.$store.state as TabsStoreState).editor.tabs
+    }
   },
   methods: {
     newFile () {
       this.$store.dispatch('NEW_UNTITLED_TAB', {})
     },
-    handleTabScroll (event) {
-      // Use mouse wheel value first but prioritize X value more (e.g. touchpad input).
+    handleTabScroll (event: WheelEvent) {
       let delta = event.deltaY
       if (event.deltaX !== 0) {
         delta = event.deltaX
       }
 
-      const tabs = this.$refs.tabContainer
-      const newLeft = Math.max(0, Math.min(tabs.scrollLeft + delta, tabs.scrollWidth))
-      tabs.scrollLeft = newLeft
+      const tabContainer = this.$refs.tabContainer as HTMLElement | undefined
+      if (!tabContainer) {
+        return
+      }
+
+      const newLeft = Math.max(0, Math.min(tabContainer.scrollLeft + delta, tabContainer.scrollWidth))
+      tabContainer.scrollLeft = newLeft
     },
-    closeTab (tabId) {
-      const tab = this.tabs.find(f => f.id === tabId)
+    closeTab (tabId: string) {
+      const tab = this.tabs.find(file => file.id === tabId)
       if (tab) {
         this.$store.dispatch('CLOSE_TAB', tab)
       }
     },
-    closeOthers (tabId) {
-      const tab = this.tabs.find(f => f.id === tabId)
+    closeOthers (tabId: string) {
+      const tab = this.tabs.find(file => file.id === tabId)
       if (tab) {
         this.$store.dispatch('CLOSE_OTHER_TABS', tab)
       }
@@ -95,25 +122,25 @@ export default {
     closeAll () {
       this.$store.dispatch('CLOSE_ALL_TABS')
     },
-    rename (tabId) {
-      const tab = this.tabs.find(f => f.id === tabId)
-      if (tab && tab.pathname) {
+    rename (tabId: string) {
+      const tab = this.tabs.find(file => file.id === tabId)
+      if (tab?.pathname) {
         this.$store.dispatch('RENAME_FILE', tab)
       }
     },
-    copyPath (tabId) {
-      const tab = this.tabs.find(f => f.id === tabId)
-      if (tab && tab.pathname) {
+    copyPath (tabId: string) {
+      const tab = this.tabs.find(file => file.id === tabId)
+      if (tab?.pathname) {
         clipboard.writeText(tab.pathname)
       }
     },
-    showInFolder (tabId) {
-      const tab = this.tabs.find(f => f.id === tabId)
-      if (tab && tab.pathname) {
+    showInFolder (tabId: string) {
+      const tab = this.tabs.find(file => file.id === tabId)
+      if (tab?.pathname) {
         shell.showItemInFolder(tab.pathname)
       }
     },
-    handleContextMenu (event, tab) {
+    handleContextMenu (event: MouseEvent, tab: DocumentState) {
       if (tab.id) {
         showContextMenu(event, tab)
       }
@@ -132,23 +159,24 @@ export default {
   },
   mounted () {
     this.$nextTick(() => {
-      const tabs = this.$refs.tabContainer
+      const tabContainer = this.$refs.tabContainer as HTMLElement | undefined
+      const tabDropContainer = this.$refs.tabDropContainer as HTMLElement | undefined
+      if (!tabContainer || !tabDropContainer) {
+        return
+      }
 
-      // Allow to scroll through the tabs by mouse wheel or touchpad.
-      tabs.addEventListener('wheel', this.handleTabScroll)
+      tabContainer.addEventListener('wheel', this.handleTabScroll)
 
-      // Allow tab drag and drop to reorder tabs.
-      const drake = this.drake = dragula([this.$refs.tabDropContainer], {
+      const drake = dragula([tabDropContainer], {
         direction: 'horizontal',
         revertOnSpill: true,
-        mirrorContainer: this.$refs.tabDropContainer,
+        mirrorContainer: tabDropContainer,
         ignoreInputTextSelection: false
-      }).on('drop', (el, target, source, sibling) => {
-        // Current tab that was dropped and need to be reordered.
+      }) as DrakeLike
+
+      drake.on('drop', (el: Element, _target: Element | null, _source: Element | null, sibling: Element | null) => {
         const droppedId = el.getAttribute('data-id')
-        // This should be the next tab (tab | ... | el | sibling | tab | ...) but may be
-        // the mirror image or null (tab | ... | el | sibling or null) if last tab.
-        const nextTabId = sibling && sibling.getAttribute('data-id')
+        const nextTabId = sibling?.getAttribute('data-id') ?? null
         const isLastTab = !sibling || sibling.classList.contains('gu-mirror')
         if (!droppedId || (sibling && !nextTabId)) {
           throw new Error('Cannot reorder tabs: invalid tab id.')
@@ -159,35 +187,31 @@ export default {
           toId: isLastTab ? null : nextTabId
         })
       })
+      this.drake = drake
 
-      // TODO(perf): Create a copy of dom-autoscroller and just hook tabs-container to
-      //   improve performance. Currently autoScroll is triggered when the mouse is moved
-      //   in MarkText window.
-
-      // Scroll when dragging a tab to the beginning or end of the tab container.
-      this.autoScroller = autoScroll([tabs], {
+      this.autoScroller = autoScroll([tabContainer as unknown as MaybeElement], {
         margin: 20,
         maxSpeed: 6,
         scrollWhenOutside: false,
         autoScroll: () => {
-          return this.autoScroller.down && drake.dragging
+          return !!this.autoScroller?.down && !!drake.dragging
         }
-      })
+      }) as AutoScrollerLike
     })
   },
-  beforeUnmount () {
-    const tabs = this.$refs.tabContainer
-    tabs.removeEventListener('wheel', this.handleTabScroll)
+  beforeDestroy () {
+    const tabContainer = this.$refs.tabContainer as HTMLElement | undefined
+    tabContainer?.removeEventListener('wheel', this.handleTabScroll)
 
     if (this.autoScroller) {
-      // Force destroy
       this.autoScroller.destroy(true)
+      this.autoScroller = null
     }
     if (this.drake) {
       this.drake.destroy()
+      this.drake = null
     }
-  },
-  beforeDestroy () {
+
     bus.$off('TABS::close-this', this.closeTab)
     bus.$off('TABS::close-others', this.closeOthers)
     bus.$off('TABS::close-saved', this.closeSaved)
@@ -196,7 +220,7 @@ export default {
     bus.$off('TABS::copy-path', this.copyPath)
     bus.$off('TABS::show-in-folder', this.showInFolder)
   }
-}
+})
 </script>
 
 <style scoped>
