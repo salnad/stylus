@@ -922,7 +922,7 @@ const prototypes: ContentStateMixin[] = [
   tableSelectCellsCtrl as ContentStateMixin,
   paragraphCtrl as ContentStateMixin,
   formatCtrl as ContentStateMixin,
-  searchCtrl as ContentStateMixin,
+  searchCtrl as unknown as ContentStateMixin,
   containerCtrl as ContentStateMixin,
   htmlBlockCtrl as unknown as ContentStateMixin,
   clickCtrl as ContentStateMixin,

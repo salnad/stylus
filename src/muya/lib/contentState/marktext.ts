@@ -1,6 +1,15 @@
 // __MARKTEXT_ONLY__
 
-import { extractWord, offsetToWordCursor, validateLineCursor } from '../marktext/spellchecker'
+import {
+  extractWord,
+  offsetToWordCursor,
+  validateLineCursor
+} from '../marktext/spellchecker'
+import type {
+  CursorRangeLike as SpellcheckerCursorRangeLike,
+  ExtractedWord,
+  SelectionLike as SpellcheckerSelectionLike
+} from '../marktext/spellchecker'
 import selection from '../selection'
 
 interface SelectionCursorPosition {
@@ -9,21 +18,16 @@ interface SelectionCursorPosition {
   block?: {
     text: string
   }
+  [key: string]: unknown
 }
 
-interface SelectionCursorRange {
+interface SelectionCursorRange extends SpellcheckerSelectionLike {
   start: SelectionCursorPosition
   end: SelectionCursorPosition
 }
 
-interface WordInfo {
-  left: number
-  right: number
-  word: string
-}
-
 interface ContentStateLike {
-  cursor: unknown
+  cursor: SpellcheckerCursorRangeLike
   getBlock(key: string): unknown
   replaceWordInline(
     line: SelectionCursorRange,
@@ -41,7 +45,7 @@ type ContentStateConstructor = {
 
 const marktextApi = (ContentState: ContentStateConstructor): void => {
   ContentState.prototype._replaceCurrentWordInlineUnsafe = function (word: string, replacement: string): boolean {
-    const { start, end } = selection.getCursorRange() as SelectionCursorRange
+    const { start, end } = selection.getCursorRange() as unknown as SelectionCursorRange
     const cursor = Object.assign({}, { start, end }) as SelectionCursorRange & {
       start: SelectionCursorPosition
     }
@@ -55,7 +59,7 @@ const marktextApi = (ContentState: ContentStateConstructor): void => {
     const { start: startCursor } = cursor
     const { offset: lineOffset } = startCursor
     const { text = '' } = startCursor.block ?? {}
-    const wordInfo = extractWord(text, lineOffset) as WordInfo | null
+    const wordInfo = extractWord(text, lineOffset) as ExtractedWord | null
     if (wordInfo) {
       const { left, right, word: selectedWord } = wordInfo
       if (selectedWord !== word) {

@@ -292,5 +292,7 @@ export const DATA_URL_REG = /^data:image\/[\w+-]+(;[\w-]+=[\w-]+|;base64)*,[a-zA
 export const defaultSearchOption = Object.freeze({
   isCaseSensitive: false,
   isWholeWord: false,
-  isRegexp: false
+  isRegexp: false,
+  selectHighlight: false,
+  highlightIndex: -1
 })
