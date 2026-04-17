@@ -177,6 +177,14 @@ declare module 'ced' {
   export default ced
 }
 
+declare module 'dompurify' {
+  const DOMPurify: {
+    sanitize(html: string, options?: unknown): string
+    isValidAttribute(tag: string, attr: string, value: string): boolean
+  }
+  export default DOMPurify
+}
+
 declare module 'axios/lib/adapters/http' {
   const adapter: unknown
   export default adapter

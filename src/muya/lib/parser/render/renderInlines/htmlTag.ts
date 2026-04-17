@@ -93,7 +93,12 @@ export default function htmlTag (
       for (const attr of Object.keys(attrs)) {
         if (attr !== 'id' && attr !== 'class') {
           const attrData = attrs[attr]
-          if (isValidAttribute(tag, attr, attrData)) {
+          const attrValue = typeof attrData === 'string'
+            ? attrData
+            : attrData === undefined
+              ? ''
+              : String(attrData)
+          if (isValidAttribute(tag, attr, attrValue)) {
             (data.attrs as Record<string, unknown>)[attr] = attrData
           }
         }
