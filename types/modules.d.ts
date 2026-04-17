@@ -185,6 +185,20 @@ declare module 'dompurify' {
   export default DOMPurify
 }
 
+declare module '@marktext/file-icons' {
+  interface FileIconMatch {
+    getClass(size?: number, enableColor?: boolean): string
+  }
+
+  interface FileIcons {
+    matchName(name: string): FileIconMatch | null
+    matchLanguage(language: string): FileIconMatch | null
+  }
+
+  const fileIcons: FileIcons
+  export default fileIcons
+}
+
 declare module 'axios/lib/adapters/http' {
   const adapter: unknown
   export default adapter

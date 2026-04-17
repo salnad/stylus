@@ -22,7 +22,7 @@ export default Vue.extend({
         // Use fallback icon when the icon is unknown.
         classNames = fileIcons.getClassByName('mock.md')
       }
-      return classNames.split(/\s/)
+      return (classNames || 'atom-icon light-cyan').split(/\s/)
     }
   }
 })
