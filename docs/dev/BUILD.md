@@ -40,6 +40,15 @@ On Red Hat-based Linux: `sudo dnf install libX11-devel libxkbfile-devel libsecre
 
 Copy the build app to applications folder, or if on Windows run the executable installer.
 
+### TypeScript workflow
+
+MarkText now uses a mixed JS/TS toolchain with strict TypeScript checking for first-party source.
+
+- Run `yarn typecheck` to validate the main process, renderer, Muya editor core, and test sources.
+- Run `yarn lint` to lint `.js`, `.ts`, and `.vue` files.
+- Run `xvfb-run -a yarn unit` in headless Linux environments because the Electron/Karma unit suite requires a display server.
+- Run `yarn test:specs` to execute the CommonMark/GFM markdown spec scripts. These scripts fetch remote fixtures and may fail in restricted-network environments.
+
 ### Important scripts
 
 ```
@@ -52,6 +61,8 @@ $ yarn run <script> # or npm run <script>
 | `build:bin`     | Build MarkText binary for your OS                |
 | `dev`           | Build and run MarkText in developer mode         |
 | `lint`          | Lint code style                                  |
+| `typecheck`     | Run TypeScript checks across app and tests       |
 | `test` / `unit` | Run unit tests                                   |
+| `test:specs`    | Run CommonMark/GFM spec comparison scripts       |
 
 For more scripts please see `package.json`.

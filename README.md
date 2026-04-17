@@ -243,6 +243,13 @@ All binaries for Linux, macOS and Windows can be downloaded from the [release pa
 
 If you wish to build MarkText yourself, please check out our [build instructions](docs/dev/BUILD.md).
 
+The project now uses TypeScript for first-party application code. In day-to-day development, the most useful validation commands are:
+
+- `yarn lint`
+- `yarn typecheck`
+- `xvfb-run -a yarn unit`
+- `yarn test:specs` *(still depends on remote CommonMark/GFM fixture downloads and may fail in restricted-network environments)*
+
 - [User documentation](docs/README.md)
 - [Developer documentation](docs/dev/README.md)
 
