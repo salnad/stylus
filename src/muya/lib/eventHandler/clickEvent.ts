@@ -3,9 +3,14 @@ import { getImageInfo } from '../utils/getImageInfo'
 import { CLASS_OR_ID } from '../config'
 import selection from '../selection'
 
+interface CursorPositionLike {
+  key: string
+  offset: number
+}
+
 interface CursorLike {
-  start?: unknown
-  end?: unknown
+  start?: CursorPositionLike
+  end?: CursorPositionLike
 }
 
 interface KeyboardLike {
