@@ -183,6 +183,49 @@ declare module 'plist' {
   export default plist
 }
 
+declare module 'prismjs' {
+  const prism: {
+    languages: Record<string, unknown>
+  }
+  export default prism
+}
+
+declare module 'prismjs/components.js' {
+  export interface PrismComponentLanguage {
+    title?: string
+    alias?: string | string[]
+    [key: string]: unknown
+  }
+
+  const components: {
+    languages: Record<string, PrismComponentLanguage>
+  }
+
+  export const languages: Record<string, PrismComponentLanguage>
+  export default components
+}
+
+declare module 'prismjs/dependencies' {
+  interface PrismComponentsLike {
+    languages: Record<string, unknown>
+  }
+
+  interface PrismLoader {
+    load(callback: (lang: string) => void): void
+  }
+
+  export default function getLoader(
+    components: PrismComponentsLike,
+    languages: string[],
+    loaded: string[]
+  ): PrismLoader
+}
+
+declare module 'prismjs/plugins/keep-markup/prism-keep-markup' {
+  const plugin: unknown
+  export default plugin
+}
+
 declare module 'dom-autoscroller' {
   interface AutoScroller {
     down?: boolean
