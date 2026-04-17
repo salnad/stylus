@@ -258,3 +258,38 @@ declare module 'dragula' {
 
   export default function dragula(containers?: Element[], options?: DragulaOptions): Drake
 }
+
+declare module 'turndown' {
+  interface TurndownRuleOptions {
+    bulletListMarker: string
+    [key: string]: unknown
+  }
+
+  interface TurndownRuleNode {
+    nodeName: string
+    classList?: {
+      contains(className: string): boolean
+    }
+    previousElementSibling?: Element | null
+    parentNode?: ParentNode | null
+    nextSibling?: Node | null
+  }
+
+  interface TurndownRule {
+    filter: string | string[] | ((node: TurndownRuleNode, options: TurndownRuleOptions) => boolean)
+    replacement(content: string, node: TurndownRuleNode, options: TurndownRuleOptions): string
+  }
+
+  export default class TurndownService {
+    constructor(options?: Record<string, unknown>)
+    use(plugin: unknown): void
+    addRule(name: string, rule: TurndownRule): void
+    keep(selectors: string[]): void
+    escape: (value: string) => string
+    turndown(html: string): string
+  }
+}
+
+declare module 'joplin-turndown-plugin-gfm' {
+  export const gfm: unknown
+}
