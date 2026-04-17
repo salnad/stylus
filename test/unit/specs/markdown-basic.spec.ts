@@ -4,14 +4,31 @@ import ExportMarkdown from '../../../src/muya/lib/utils/exportMarkdown'
 import { MUYA_DEFAULT_OPTION } from '../../../src/muya/lib/config'
 import * as templates from '../markdown'
 
-const defaultOptions = { endOfLine: 'lf' }
-const defaultOptionsCrlf = Object.assign({}, defaultOptions, { endOfLine: 'crlf' })
+interface MuyaTestOptions extends Record<string, unknown> {
+  endOfLine: string
+}
 
-const createMuyaContext = options => {
-  const ctx = {}
+type ContentStateWithMarkdownApi = ContentState & {
+  importMarkdown(markdown: string): void
+}
+
+interface MuyaTestContext {
+  options: Record<string, unknown>
+  eventCenter: EventCenter
+  contentState: ContentStateWithMarkdownApi
+}
+
+const defaultOptions: MuyaTestOptions = { endOfLine: 'lf' }
+const defaultOptionsCrlf: MuyaTestOptions = Object.assign({}, defaultOptions, { endOfLine: 'crlf' })
+
+const createMuyaContext = (options: MuyaTestOptions): MuyaTestContext => {
+  const ctx = {} as MuyaTestContext
   ctx.options = Object.assign({}, MUYA_DEFAULT_OPTION, options)
   ctx.eventCenter = new EventCenter()
-  ctx.contentState = new ContentState(ctx, ctx.options)
+  ctx.contentState = new ContentState(
+    ctx as unknown as ConstructorParameters<typeof ContentState>[0],
+    ctx.options as ConstructorParameters<typeof ContentState>[1]
+  ) as ContentStateWithMarkdownApi
   return ctx
 }
 
@@ -19,7 +36,7 @@ const createMuyaContext = options => {
 // Muya parser (Markdown to HTML to Markdown)
 //
 
-const verifyMarkdown = (markdown, options) => {
+const verifyMarkdown = (markdown: string, options: MuyaTestOptions): void => {
   const ctx = createMuyaContext(options)
   ctx.contentState.importMarkdown(markdown)
 

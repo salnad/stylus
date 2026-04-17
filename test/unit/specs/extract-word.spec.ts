@@ -1,20 +1,20 @@
-import { extractWord } from '../../../src/muya/lib/marktext/spellchecker.js'
+import { extractWord, type ExtractedWord } from '../../../src/muya/lib/marktext/spellchecker'
 
 const basicCheck = 'Lorem ipsum dolor'
 const basicText = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce pharetra turpis in ante viverra, sit amet euismod tortor rutrum. Sed eu libero velit. Aliquam erat volutpat. Sed ullamcorper ultricies auctor. Vestibulum vitae odio eleifend, finibus justo a, vestibulum orci.'
 const basicMdText = '**Lorem** ipsum ~~dolor~~ sit <sub>amet</sub>, ----- **** **虥諰諨** consectetur adipiscing elit.'
 const nonAscii = '虥諰 鯦鯢鯡 媓幁惁 墏, 邆錉霋 鱐鱍鱕 銪 鈌鈅, 韎餀 骱 噮噦噞 虥諰諨 樆樦潏 蝺 嬔嬚嬞 脬舑莕 騩鰒...'
 
-const buildResult = (left, right, word) => {
+const buildResult = (left: number, right: number, word: string): ExtractedWord => {
   return { left, right, word }
 }
 
-const test = (text, offset, expectedWord) => {
+const test = (text: string | null | undefined, offset: number, expectedWord: ExtractedWord | null): void => {
   const wordInfo = extractWord(text, offset)
   if (expectedWord !== wordInfo && (
-    expectedWord.left !== wordInfo.left ||
-    expectedWord.right !== wordInfo.right ||
-    expectedWord.word !== wordInfo.word
+    expectedWord?.left !== wordInfo?.left ||
+    expectedWord?.right !== wordInfo?.right ||
+    expectedWord?.word !== wordInfo?.word
   )) {
     // NOTE: Always invalid.
     expect(expectedWord).to.equal(wordInfo)
@@ -32,7 +32,7 @@ describe('Test extractWord', () => {
     test(basicCheck, -182, buildResult(0, 5, 'Lorem'))
   })
   it('Basic - Invalid offset 2', () => {
-    test(basicCheck, undefined, null)
+    test(basicCheck, undefined as unknown as number, null)
   })
   it('Basic - Invalid offset 3', () => {
     test(basicCheck, 478343, buildResult(12, 17, 'dolor'))

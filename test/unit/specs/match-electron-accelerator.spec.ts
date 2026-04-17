@@ -12,7 +12,7 @@ const characterKeys = [
   '!',
   '@',
   '#'
-]
+] as const
 
 const nonCharacterKeys = [
   'F1',
@@ -44,7 +44,7 @@ const nonCharacterKeys = [
   'MediaStop',
   'MediaPlayPause',
   'PrintScreen'
-]
+] as const
 
 const keys = [...characterKeys, ...nonCharacterKeys]
 
@@ -59,7 +59,7 @@ const modifiers = [
   'Option',
   'AltGr',
   'Shift'
-]
+] as const
 
 describe('Test equal with non characte key', () => {
   it('Match F2', () => {

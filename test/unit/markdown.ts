@@ -1,40 +1,40 @@
 import fs from 'fs'
 import path from 'path'
 
-const loadMarkdownContent = pathname => {
+const loadMarkdownContent = (pathname: string): string => {
   // Load file and ensure LF line endings.
   return fs.readFileSync(path.resolve('test/unit/data', pathname), 'utf-8').replace(/(?:\r\n|\n)/g, '\n')
 }
 
-export const BasicTextFormattingTemplate = () => {
+export const BasicTextFormattingTemplate = (): string => {
   return loadMarkdownContent('common/BasicTextFormatting.md')
 }
 
-export const BlockquotesTemplate= () => {
+export const BlockquotesTemplate = (): string => {
   return loadMarkdownContent('common/Blockquotes.md')
 }
 
-export const CodeBlocksTemplate = () => {
+export const CodeBlocksTemplate = (): string => {
   return loadMarkdownContent('common/CodeBlocks.md')
 }
 
-export const EscapesTemplate = () => {
+export const EscapesTemplate = (): string => {
   return loadMarkdownContent('common/Escapes.md')
 }
 
-export const HeadingsTemplate = () => {
+export const HeadingsTemplate = (): string => {
   return loadMarkdownContent('common/Headings.md')
 }
 
-export const ImagesTemplate = () => {
+export const ImagesTemplate = (): string => {
   return loadMarkdownContent('common/Images.md')
 }
 
-export const LinksTemplate = () => {
+export const LinksTemplate = (): string => {
   return loadMarkdownContent('common/Links.md')
 }
 
-export const ListsTemplate = () => {
+export const ListsTemplate = (): string => {
   return loadMarkdownContent('common/Lists.md')
 }
 
@@ -42,14 +42,14 @@ export const ListsTemplate = () => {
 // GFM templates
 //
 
-export const GfmBasicTextFormattingTemplate = () => {
+export const GfmBasicTextFormattingTemplate = (): string => {
   return loadMarkdownContent('gfm/BasicTextFormatting.md')
 }
 
-export const GfmListsTemplate = () => {
+export const GfmListsTemplate = (): string => {
   return loadMarkdownContent('gfm/Lists.md')
 }
 
-export const GfmTablesTemplate = () => {
+export const GfmTablesTemplate = (): string => {
   return loadMarkdownContent('gfm/Tables.md')
 }

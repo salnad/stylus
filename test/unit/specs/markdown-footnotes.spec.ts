@@ -1,23 +1,27 @@
 import { Lexer } from '../../../src/muya/lib/parser/marked'
 
-const parseMarkdown = markdown => {
+interface TokenShape extends Record<string, unknown> {
+  type?: string
+}
+
+const parseMarkdown = (markdown: string): TokenShape[] => {
   const lexer = new Lexer({
     disableInline: true,
     footnote: true
   })
-  return lexer.lex(markdown)
+  return lexer.lex(markdown) as unknown as TokenShape[]
 }
 
-const convertToken = token => {
-  const obj = {}
+const convertToken = (token: TokenShape): TokenShape => {
+  const obj: TokenShape = {}
   for (const key of Object.keys(token)) {
     obj[key] = token[key]
   }
   return obj
 }
 
-const convertTokens = tokenList => {
-  const tokens = []
+const convertTokens = (tokenList: TokenShape[]): TokenShape[] => {
+  const tokens: TokenShape[] = []
   for (const token of tokenList) {
     tokens.push(convertToken(token))
   }

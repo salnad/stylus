@@ -3,11 +3,23 @@ import EventCenter from '../../../src/muya/lib/eventHandler/event'
 import ExportMarkdown from '../../../src/muya/lib/utils/exportMarkdown'
 import { MUYA_DEFAULT_OPTION } from '../../../src/muya/lib/config'
 
-const createMuyaContext = listIdentation => {
-  const ctx = {}
+type ListIndentation = number | string
+
+interface TestContentState extends ContentState {
+  importMarkdown(markdown: string): void
+}
+
+interface MuyaListContext {
+  options: Record<string, unknown>
+  eventCenter: EventCenter
+  contentState: TestContentState
+}
+
+const createMuyaContext = (listIdentation: ListIndentation): MuyaListContext => {
+  const ctx = {} as MuyaListContext
   ctx.options = Object.assign({}, MUYA_DEFAULT_OPTION, { listIdentation })
   ctx.eventCenter = new EventCenter()
-  ctx.contentState = new ContentState(ctx, ctx.options)
+  ctx.contentState = new ContentState(ctx as unknown as ConstructorParameters<typeof ContentState>[0], ctx.options) as TestContentState
   return ctx
 }
 
@@ -15,7 +27,7 @@ const createMuyaContext = listIdentation => {
 // Muya parser (Markdown to HTML to Markdown)
 //
 
-const verifyMarkdown = (expectedMarkdown, listIdentation, markdown = '') => {
+const verifyMarkdown = (expectedMarkdown: string, listIdentation: ListIndentation, markdown = ''): void => {
   if (!markdown) {
     markdown = `start
 
