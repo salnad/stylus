@@ -14,17 +14,19 @@ type EscapeFn = ((html: string, encode?: boolean) => string) & {
   escapeReplaceNoEncode: RegExp
 }
 
-export const escape: EscapeFn = function escape (html: string, encode = false): string {
+const escapeFn = function escape (html: string, encode = false): string {
   if (encode) {
-    if (escape.escapeTest.test(html)) {
-      return html.replace(escape.escapeReplace, ch => escape.replacements[ch])
+    if (escapeFn.escapeTest.test(html)) {
+      return html.replace(escapeFn.escapeReplace, ch => escapeFn.replacements[ch])
     }
-  } else if (escape.escapeTestNoEncode.test(html)) {
-    return html.replace(escape.escapeReplaceNoEncode, ch => escape.replacements[ch])
+  } else if (escapeFn.escapeTestNoEncode.test(html)) {
+    return html.replace(escapeFn.escapeReplaceNoEncode, ch => escapeFn.replacements[ch])
   }
 
   return html
 } as EscapeFn
+
+export const escape: EscapeFn = escapeFn
 
 escape.escapeTest = /[&<>"']/
 escape.escapeReplace = /[&<>"']/g
@@ -63,7 +65,7 @@ export const edit = (regex: string | RegExp, opt = ''): EditableRegex => {
     replace (name: string | RegExp, value: string | RegExp) {
       const pattern = typeof name === 'string' ? name : name.source
       let nextValue = typeof value === 'string' ? value : value.source
-      nextValue = nextValue.replace(/(^|[^\[])\^/g, '$1')
+      nextValue = nextValue.replace(/(^|[^[])\^/g, '$1')
       source = source.replace(pattern, nextValue)
       return this
     },
@@ -104,7 +106,7 @@ const resolveUrl = (base: string, href: string): string => {
   return normalizedBase + href
 }
 
-export const cleanUrl = (sanitizeInput: boolean, base: string | null, href: string): string | null => {
+export const cleanUrl = (sanitizeInput: boolean | undefined, base: string | null | undefined, href: string): string | null => {
   if (sanitizeInput) {
     let prot = ''
     try {

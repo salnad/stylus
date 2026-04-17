@@ -167,7 +167,7 @@ class Renderer {
   }
 
   link (href: string, title: string | null, text: string): string {
-    const nextHref = cleanUrl(this.options.sanitize, this.options.baseUrl, href)
+    const nextHref = cleanUrl(!!this.options.sanitize, this.options.baseUrl ?? null, href)
     if (nextHref === null) {
       return text
     }
@@ -193,7 +193,7 @@ class Renderer {
       nextHref = 'file://' + nextHref
     }
 
-    nextHref = cleanUrl(this.options.sanitize, this.options.baseUrl, nextHref) ?? ''
+    nextHref = cleanUrl(!!this.options.sanitize, this.options.baseUrl ?? null, nextHref) ?? ''
     if (!nextHref) {
       return text
     }

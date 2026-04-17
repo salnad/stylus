@@ -1,6 +1,8 @@
 // License: BSD
 // Source: https://github.com/django/django/blob/master/django/contrib/admin/static/admin/js/urlify.js
 
+/* eslint-disable quote-props, object-property-newline */
+
 type DowncoderMap = Record<string, string>
 
 const LATIN_MAP: DowncoderMap = {
