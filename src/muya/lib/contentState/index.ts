@@ -914,7 +914,7 @@ const prototypes: ContentStateMixin[] = [
   backspaceCtrl as ContentStateMixin,
   deleteCtrl as unknown as ContentStateMixin,
   codeBlockCtrl as ContentStateMixin,
-  arrowCtrl as ContentStateMixin,
+  arrowCtrl as unknown as ContentStateMixin,
   pasteCtrl as ContentStateMixin,
   copyCutCtrl as ContentStateMixin,
   tableBlockCtrl as ContentStateMixin,
