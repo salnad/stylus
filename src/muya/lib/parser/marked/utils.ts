@@ -63,7 +63,7 @@ export const edit = (regex: string | RegExp, opt = ''): EditableRegex => {
   let source = typeof regex === 'string' ? regex : regex.source
   return {
     replace (name: string | RegExp, value: string | RegExp) {
-      const pattern = typeof name === 'string' ? name : name.source
+      const pattern = typeof name === 'string' ? name : name
       let nextValue = typeof value === 'string' ? value : value.source
       nextValue = nextValue.replace(/(^|[^[])\^/g, '$1')
       source = source.replace(pattern, nextValue)
