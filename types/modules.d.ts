@@ -132,6 +132,20 @@ declare module 'command-exists' {
   export default commandExists
 }
 
+declare module 'popper.js/dist/esm/popper' {
+  export { default } from 'popper.js'
+  export * from 'popper.js'
+}
+
+declare module 'element-resize-detector' {
+  interface ElementResizeDetector {
+    listenTo(element: Element, listener: (element: HTMLElement) => void): void
+    uninstall(element: Element): void
+  }
+
+  export default function resizeDetector(options?: { strategy?: string }): ElementResizeDetector
+}
+
 declare module 'ced' {
   function ced(input: Buffer | Uint8Array | ArrayBuffer | string): string
   export default ced
