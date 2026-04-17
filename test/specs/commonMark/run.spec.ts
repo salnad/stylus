@@ -1,37 +1,67 @@
 // This file is copy from marked and modified.
+import fs from 'fs'
+import path from 'path'
+import fetch from 'node-fetch'
+import markedJs from 'marked'
+import { HtmlDiffer } from '@markedjs/html-differ'
+
+import marked from '../../../src/muya/lib/parser/marked/index.js'
 import { removeCustomClass, padding } from '../help'
 import { MT_MARKED_OPTIONS } from '../config'
-const fetch = require('node-fetch')
-const markedJs = require('marked')
-const marked = require('../../../src/muya/lib/parser/marked/index.js').default
-const HtmlDiffer = require('@markedjs/html-differ').HtmlDiffer
-const fs = require('fs')
-const path = require('path')
 
-const options = { ignoreSelfClosingSlash: true, ignoreAttributes: ['id', 'class'] }
+interface HtmlDifferOptions {
+  ignoreSelfClosingSlash: boolean
+  ignoreAttributes: string[]
+}
+
+interface JsonResponse<T> {
+  json(): Promise<T>
+}
+
+interface CommonMarkSpec {
+  example: number
+  section: string
+  shouldFail?: boolean
+  html: string
+  markdown: string
+}
+
+interface SectionResult {
+  count: number
+  failed: number
+  failedExamples: number[]
+}
+
+const options: HtmlDifferOptions = { ignoreSelfClosingSlash: true, ignoreAttributes: ['id', 'class'] }
 
 const htmlDiffer = new HtmlDiffer(options)
 
-const getSpecs = async () => {
+const getSpecs = async (): Promise<{ specs: CommonMarkSpec[], version: string }> => {
   const version = await fetch('https://raw.githubusercontent.com/commonmark/commonmark.js/master/package.json')
-    .then(res => res.json())
+    .then((res: JsonResponse<{ version: string }>) => res.json())
     .then(pkg => pkg.version.replace(/^(\d+\.\d+).*$/, '$1'))
 
-  return fetch(`https://spec.commonmark.org/${version}/spec.json`)
-    .then(res => res.json())
-    .then(specs => ({ specs, version }))
+  const specs = await fetch(`https://spec.commonmark.org/${version}/spec.json`)
+    .then((res: JsonResponse<CommonMarkSpec[]>) => res.json())
+
+  return { specs, version }
 }
 
-const getMarkedSpecs = async (version) => {
+const getMarkedSpecs = async (version: string): Promise<CommonMarkSpec[]> => {
   return fetch(`https://raw.githubusercontent.com/markedjs/marked/master/test/specs/commonmark/commonmark.${version}.json`)
-    .then(res => res.json())
+    .then((res: JsonResponse<CommonMarkSpec[]>) => res.json())
 }
 
-export const writeResult = (version, specs, markedSpecs, type = 'commonmark') => {
+export const writeResult = (
+  version: string,
+  specs: CommonMarkSpec[],
+  markedSpecs: CommonMarkSpec[],
+  type: 'commonmark' | 'gfm' = 'commonmark'
+): void => {
   let result = '## Test Result\n\n'
   const totalCount = specs.length
   const failedCount = specs.filter(s => s.shouldFail).length
-  const classifiedResult = {}
+  const classifiedResult: Record<string, SectionResult> = {}
   for (const spec of specs) {
     const { example, section, shouldFail } = spec
     const item = classifiedResult[section]
@@ -118,7 +148,7 @@ export const writeResult = (version, specs, markedSpecs, type = 'commonmark') =>
   fs.writeFileSync(path.join(__dirname, comparePath), compareResult)
 }
 
-const diffAndGenerateResult = async () => {
+const diffAndGenerateResult = async (): Promise<void> => {
   const { specs, version } = await getSpecs()
   const markedSpecs = await getMarkedSpecs(version)
 
@@ -132,8 +162,6 @@ const diffAndGenerateResult = async () => {
   writeResult(version, specs, markedSpecs, 'commonmark')
 }
 
-try {
-  diffAndGenerateResult()
-} catch (err) {
+diffAndGenerateResult().catch(err => {
   console.log(err)
-}
+})

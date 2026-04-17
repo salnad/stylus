@@ -21,7 +21,6 @@
     "node_modules",
     "dist",
     "coverage",
-    "src/muya/dist",
-    "test/specs/**/*"
+    "src/muya/dist"
   ]
 }

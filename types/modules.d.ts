@@ -132,6 +132,32 @@ declare module 'command-exists' {
   export default commandExists
 }
 
+declare module 'node-fetch' {
+  const fetch: typeof globalThis.fetch
+  export default fetch
+}
+
+declare module 'marked' {
+  interface MarkedOptions {
+    headerIds?: boolean
+    [key: string]: unknown
+  }
+
+  export default function marked(markdown: string, options?: MarkedOptions): string
+}
+
+declare module '@markedjs/html-differ' {
+  export interface HtmlDifferOptions {
+    ignoreSelfClosingSlash: boolean
+    ignoreAttributes: string[]
+  }
+
+  export class HtmlDiffer {
+    constructor(options: HtmlDifferOptions)
+    isEqual(actualHtml: string, expectedHtml: string): boolean
+  }
+}
+
 declare module 'popper.js/dist/esm/popper' {
   export { default } from 'popper.js'
   export * from 'popper.js'

@@ -1,19 +1,17 @@
-export const removeCustomClass = html => {
+export const removeCustomClass = (html: string): string => {
   const customClass = ['indented-code-block', 'fenced-code-block', 'task-list-item']
   customClass.forEach(className => {
     if (html.indexOf(className) > -1) {
-      const REG_EXP = new RegExp(`class="${className}"`, 'g')
-      /* eslint-disable no-useless-escape */
-      const REG_EXP_SIMPLE = new RegExp(className + ' \*', 'g')
-      /* eslint-enable no-useless-escape */
-      html = html.replace(REG_EXP, '')
-        .replace(REG_EXP_SIMPLE, '')
+      const regExp = new RegExp(`class="${className}"`, 'g')
+      const regExpSimple = new RegExp(className + ' *', 'g')
+      html = html.replace(regExp, '')
+        .replace(regExpSimple, '')
     }
   })
   return html
 }
 
-export const padding = (str, len, marker = ' ') => {
+export const padding = (str: string, len: number, marker = ' '): string => {
   const spaceLen = len - str.length
   let preLen = 0
   let postLen = 0

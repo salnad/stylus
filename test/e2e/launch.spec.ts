@@ -1,9 +1,11 @@
-const { expect, test } = require('@playwright/test')
-const { launchElectron } = require('./helpers')
+import { expect, test } from '@playwright/test'
+import type { ElectronApplication, Page } from 'playwright'
 
-test.describe('Check Launch MarkText', async () => {
-  let app = null
-  let page = null
+import { launchElectron } from './helpers'
+
+test.describe('Check Launch MarkText', () => {
+  let app: ElectronApplication
+  let page: Page
 
   test.beforeAll(async () => {
     const { app: electronApp, page: firstPage } = await launchElectron()
